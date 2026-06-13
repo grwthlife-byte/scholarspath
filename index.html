@@ -1,0 +1,825 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>ScholarsPath — Global Scholarship Platform</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0a0f1a;--bg2:#0f1625;--bg3:#151e2e;--card:#1a2336;--card2:#1f2b3e;
+  --accent:#4fd1c5;--accent2:#f6ad55;--accent3:#9f7aea;
+  --text:#e2e8f0;--text2:#94a3b8;--text3:#64748b;
+  --border:rgba(79,209,197,0.15);--radius:16px;
+}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,sans-serif;font-size:15px;line-height:1.6;min-height:100vh;overflow-x:hidden}
+::-webkit-scrollbar{width:5px}
+::-webkit-scrollbar-track{background:var(--bg)}
+::-webkit-scrollbar-thumb{background:var(--accent);border-radius:3px}
+.glow1{position:fixed;width:500px;height:500px;border-radius:50%;background:rgba(79,209,197,0.12);filter:blur(120px);top:-100px;left:10%;pointer-events:none;z-index:0}
+.glow2{position:fixed;width:500px;height:500px;border-radius:50%;background:rgba(159,122,234,0.08);filter:blur(120px);bottom:-100px;right:5%;pointer-events:none;z-index:0}
+.screen{display:none;position:relative;z-index:1;min-height:100vh}
+.screen.active{display:block}
+#screen-landing{display:flex;align-items:center;justify-content:center;text-align:center;padding:40px 20px}
+.hero-badge{display:inline-flex;align-items:center;gap:10px;background:rgba(79,209,197,0.08);border:1px solid rgba(79,209,197,0.2);border-radius:30px;padding:8px 20px;font-size:12px;letter-spacing:3px;color:var(--accent);text-transform:uppercase;margin-bottom:28px}
+.hero-title{font-size:clamp(44px,8vw,88px);font-weight:300;line-height:0.95;letter-spacing:-2px;margin-bottom:24px}
+.hero-title em{font-style:italic;color:var(--accent)}
+.hero-sub{font-size:17px;color:var(--text2);max-width:460px;margin:0 auto 36px}
+.pills{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin-bottom:44px}
+.pill{background:var(--card);border:1px solid var(--border);border-radius:30px;padding:7px 14px;font-size:12px;color:var(--text2)}
+.hero-btns{display:flex;gap:12px;justify-content:center;flex-wrap:wrap}
+.hero-note{margin-top:40px;font-size:12px;color:var(--text3)}
+#screen-onboard{display:flex;align-items:center;justify-content:center;padding:40px 20px;min-height:100vh}
+.ob-box{width:100%;max-width:620px;position:relative;z-index:1}
+.ob-hdr{text-align:center;margin-bottom:28px}
+.ob-brand{font-size:12px;letter-spacing:4px;color:var(--accent);text-transform:uppercase;margin-bottom:8px}
+.ob-title{font-size:30px;font-weight:300}
+.ob-title span{font-style:italic;color:var(--accent)}
+.ob-info{color:var(--text2);font-size:13px;margin-top:6px}
+.stepper{display:flex;align-items:center;margin-bottom:28px}
+.sdot{width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:600;flex-shrink:0;transition:all .3s}
+.sdot.done{background:var(--accent);color:#0a0f1a}
+.sdot.active{background:var(--card2);color:var(--accent);border:2px solid var(--accent)}
+.sdot.todo{background:var(--card2);color:var(--text3);border:2px solid var(--border)}
+.sline{flex:1;height:2px;background:var(--border)}
+.sline.done{background:var(--accent)}
+#screen-app{display:none}
+#screen-app.active{display:flex}
+.sidebar{position:fixed;left:0;top:0;bottom:0;width:68px;background:rgba(15,22,37,0.97);border-right:1px solid var(--border);display:flex;flex-direction:column;align-items:center;padding:16px 0;gap:4px;z-index:100}
+.sb-logo{font-size:14px;font-weight:700;color:var(--accent);margin-bottom:12px;letter-spacing:1px}
+.nav-btn{width:46px;height:46px;border-radius:12px;border:1px solid transparent;background:transparent;color:var(--text3);font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .2s;position:relative}
+.nav-btn:hover{background:var(--card);color:var(--text);border-color:var(--border)}
+.nav-btn.active{background:rgba(79,209,197,0.12);color:var(--accent);border-color:rgba(79,209,197,0.3)}
+.nav-tip{position:absolute;left:calc(100% + 10px);background:var(--card2);border:1px solid var(--border);color:var(--text);font-size:11px;padding:4px 10px;border-radius:7px;white-space:nowrap;opacity:0;pointer-events:none;transition:opacity .15s;font-family:inherit;z-index:200}
+.nav-btn:hover .nav-tip{opacity:1}
+.notif{position:absolute;top:7px;right:7px;width:7px;height:7px;border-radius:50%;background:#f6ad55;border:2px solid var(--bg2)}
+.main-area{margin-left:68px;width:100%;min-height:100vh}
+.page{display:none;padding:36px;max-width:1160px;animation:fadeUp .4s ease}
+.page.active{display:block}
+@keyframes fadeUp{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:translateY(0)}}
+.topbar{display:flex;align-items:center;justify-content:space-between;margin-bottom:32px;flex-wrap:wrap;gap:12px}
+.page-title{font-size:28px;font-weight:300}
+.page-title em{font-style:italic;color:var(--accent)}
+.user-chip{display:flex;align-items:center;gap:8px;background:var(--card);border:1px solid var(--border);border-radius:40px;padding:5px 14px 5px 5px;font-size:13px;color:var(--text2)}
+.avatar{width:30px;height:30px;border-radius:50%;background:linear-gradient(135deg,var(--accent),var(--accent3));display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:#0a0f1a}
+.card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:22px;transition:border-color .2s,box-shadow .2s}
+.card:hover{border-color:rgba(79,209,197,0.25);box-shadow:0 0 30px rgba(79,209,197,0.08)}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+.grid4{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}
+.btn{display:inline-flex;align-items:center;gap:7px;padding:10px 20px;border-radius:10px;border:none;font-size:14px;font-weight:500;cursor:pointer;transition:all .2s;font-family:inherit}
+.btn-primary{background:var(--accent);color:#0a0f1a}
+.btn-primary:hover{background:#38b2ac;transform:translateY(-1px);box-shadow:0 4px 18px rgba(79,209,197,0.28)}
+.btn-outline{background:transparent;border:1px solid var(--border);color:var(--text2)}
+.btn-outline:hover{border-color:var(--accent);color:var(--accent)}
+.btn-ghost{background:transparent;border:none;color:var(--text2);padding:8px 12px}
+.btn-ghost:hover{color:var(--accent)}
+.btn-purple{background:var(--accent3);color:#fff}
+.badge{display:inline-flex;align-items:center;padding:2px 9px;border-radius:20px;font-size:11px;font-weight:500}
+.bg{background:rgba(79,209,197,0.12);color:var(--accent);border:1px solid rgba(79,209,197,0.25)}
+.bo{background:rgba(246,173,85,0.12);color:var(--accent2);border:1px solid rgba(246,173,85,0.25)}
+.bp{background:rgba(159,122,234,0.12);color:var(--accent3);border:1px solid rgba(159,122,234,0.25)}
+.br{background:rgba(252,129,74,0.12);color:#fc814a;border:1px solid rgba(252,129,74,0.25)}
+.prog-track{background:var(--bg3);border-radius:4px;height:6px;overflow:hidden}
+.prog-fill{height:100%;border-radius:4px;transition:width .7s ease}
+.pf-teal{background:linear-gradient(90deg,var(--accent),#38b2ac)}
+.pf-orange{background:linear-gradient(90deg,var(--accent2),#ed8936)}
+.pf-purple{background:linear-gradient(90deg,var(--accent3),#805ad5)}
+.fg{margin-bottom:16px}
+.fl{display:block;font-size:11px;color:var(--text2);margin-bottom:5px;letter-spacing:.5px;text-transform:uppercase}
+.fi{width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:10px 13px;color:var(--text);font-size:14px;outline:none;transition:border-color .2s;font-family:inherit}
+.fi:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(79,209,197,0.1)}
+.fi::placeholder{color:var(--text3)}
+select.fi{appearance:none;cursor:pointer}
+textarea.fi{resize:vertical;min-height:80px}
+.stat-card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:18px;position:relative;overflow:hidden}
+.stat-card::before{content:'';position:absolute;top:-30px;right:-30px;width:80px;height:80px;border-radius:50%;opacity:.08}
+.sc-teal::before{background:var(--accent)}.sc-orange::before{background:var(--accent2)}.sc-purple::before{background:var(--accent3)}.sc-red::before{background:#fc814a}
+.stat-num{font-size:34px;font-weight:700;line-height:1}
+.stat-lbl{font-size:11px;color:var(--text3);margin-top:4px}
+.match-card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:18px;display:flex;gap:14px;align-items:flex-start;transition:all .2s;cursor:pointer;margin-bottom:10px}
+.match-card:hover{border-color:rgba(79,209,197,0.35);transform:translateY(-1px)}
+.score-box{min-width:56px;height:56px;border-radius:12px;display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:18px;font-weight:700;line-height:1}
+.score-hi{background:rgba(79,209,197,0.12);color:var(--accent)}
+.score-md{background:rgba(246,173,85,0.12);color:var(--accent2)}
+.peer-card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:16px;display:flex;align-items:center;gap:12px;cursor:pointer;transition:all .2s;margin-bottom:10px}
+.peer-card:hover,.peer-card.sel{border-color:rgba(159,122,234,0.4)}
+.peer-av{width:42px;height:42px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;color:#fff;flex-shrink:0;position:relative}
+.online-dot{position:absolute;bottom:0;right:0;width:10px;height:10px;border-radius:50%;background:#48bb78;border:2px solid var(--bg)}
+.chat-wrap{background:var(--bg3);border-radius:12px;padding:16px;min-height:220px;max-height:300px;overflow-y:auto;display:flex;flex-direction:column;gap:10px;margin-bottom:12px}
+.bubble{background:var(--card2);border:1px solid var(--border);border-radius:10px 10px 10px 3px;padding:10px 14px;font-size:13px;line-height:1.5;max-width:82%}
+.bubble.me{background:rgba(79,209,197,0.08);border-color:rgba(79,209,197,0.2);border-radius:10px 10px 3px 10px;margin-left:auto;text-align:right}
+.news-card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;cursor:pointer;transition:all .2s}
+.news-card:hover{border-color:rgba(246,173,85,0.3);transform:translateY(-2px)}
+.news-img{height:110px;display:flex;align-items:center;justify-content:center;font-size:44px;background:linear-gradient(135deg,var(--bg3),var(--card2))}
+.news-body{padding:14px}
+.news-title{font-size:13px;font-weight:500;line-height:1.4;margin-bottom:6px}
+.news-meta{font-size:11px;color:var(--text3);display:flex;gap:8px;align-items:center}
+.mood-btn{width:52px;height:52px;border-radius:50%;border:2px solid var(--border);background:var(--bg3);font-size:22px;cursor:pointer;transition:all .2s;display:flex;align-items:center;justify-content:center}
+.mood-btn:hover,.mood-btn.sel{border-color:var(--accent);background:rgba(79,209,197,0.1);transform:scale(1.1)}
+.tip-card{background:var(--card);border-left:3px solid var(--accent);border-radius:0 var(--radius) var(--radius) 0;padding:16px 20px;margin-bottom:12px}
+.tip-num{font-size:28px;font-weight:700;color:rgba(79,209,197,0.2);float:left;margin-right:10px;line-height:1}
+.voice-btn{width:68px;height:68px;border-radius:50%;border:none;background:var(--accent);color:#0a0f1a;font-size:26px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .2s;flex-shrink:0}
+.voice-btn.rec{background:#fc814a;animation:pulse 1.5s infinite}
+@keyframes pulse{0%{box-shadow:0 0 0 0 rgba(252,129,74,.4)}70%{box-shadow:0 0 0 18px rgba(252,129,74,0)}100%{box-shadow:0 0 0 0 rgba(252,129,74,0)}}
+.tl-item{display:flex;gap:14px;position:relative}
+.tl-item::before{content:'';position:absolute;left:18px;top:42px;bottom:-18px;width:2px;background:linear-gradient(to bottom,var(--accent),transparent)}
+.tl-item:last-child::before{display:none}
+.tl-dot{width:38px;height:38px;border-radius:50%;border:2px solid var(--accent);background:var(--bg3);display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0;margin-top:2px}
+.tl-content{flex:1;background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:14px;margin-bottom:18px}
+.year-tag{font-size:11px;color:var(--accent);font-weight:700;text-transform:uppercase;letter-spacing:1px}
+.alert{border-radius:12px;padding:12px 16px;font-size:13px;margin-bottom:16px;display:flex;align-items:flex-start;gap:9px}
+.alert-i{background:rgba(79,209,197,0.07);border:1px solid rgba(79,209,197,0.18);color:var(--text2)}
+.alert-w{background:rgba(246,173,85,0.07);border:1px solid rgba(246,173,85,0.18);color:var(--text2)}
+.tag{background:var(--bg3);border:1px solid var(--border);border-radius:6px;padding:2px 8px;font-size:11px;color:var(--text2)}
+.tabs{display:flex;gap:3px;background:var(--bg3);border-radius:10px;padding:3px;margin-bottom:20px;flex-wrap:wrap}
+.tab{flex:1;padding:8px 10px;border-radius:8px;border:none;background:transparent;color:var(--text3);font-size:12px;cursor:pointer;white-space:nowrap;font-family:inherit;transition:all .2s;min-width:50px}
+.tab.active{background:var(--card2);color:var(--text)}
+.tab:hover:not(.active){color:var(--text2)}
+.sec-title{font-size:18px;font-weight:500}
+.sec-sub{font-size:12px;color:var(--text3)}
+.scroll-row{display:flex;gap:14px;overflow-x:auto;padding-bottom:8px}
+.scroll-row::-webkit-scrollbar{height:3px}
+.scroll-row > *{flex-shrink:0}
+.doc-preview{background:#fff;color:#1a202c;border-radius:var(--radius);padding:36px;box-shadow:0 20px 60px rgba(0,0,0,.5)}
+.doc-field{border-bottom:1px solid #e2e8f0;padding:7px 0;font-size:13px;display:flex;gap:10px}
+.doc-field .dl{color:#718096;min-width:150px;font-size:11px;text-transform:uppercase;letter-spacing:.3px;flex-shrink:0}
+.doc-field .dv{color:#2d3748;font-weight:500}
+@media(max-width:768px){
+  .sidebar{width:100%;height:58px;top:auto;bottom:0;left:0;flex-direction:row;justify-content:space-around;padding:0 8px;border-top:1px solid var(--border);border-right:none}
+  .main-area{margin-left:0;margin-bottom:58px}
+  .page{padding:16px}
+  .grid2,.grid3,.grid4{grid-template-columns:1fr}
+  .nav-tip{display:none}
+  .sb-logo{display:none}
+}
+</style>
+</head>
+<body>
+<div class="glow1"></div>
+<div class="glow2"></div>
+
+<!-- LANDING -->
+<div id="screen-landing" class="screen active">
+  <div>
+    <div class="hero-badge">✦ ScholarsPath ✦</div>
+    <h1 class="hero-title">Your <em>Global</em><br>Scholarship<br>Journey</h1>
+    <p class="hero-sub">AI-powered matching, peer community, career planning and mental health support — all in one platform for international students.</p>
+    <div class="pills">
+      <span class="pill">🎯 95%+ Match Accuracy</span><span class="pill">🤝 Peer Community</span>
+      <span class="pill">📄 Auto Pre-Application</span><span class="pill">📰 Curated News</span>
+      <span class="pill">💙 Mental Health Support</span><span class="pill">💡 Expert Tips</span>
+      <span class="pill">🎙 Interview Simulator</span><span class="pill">🗺 10-Year Career Plan</span>
+    </div>
+    <div class="hero-btns">
+      <button class="btn btn-primary" style="font-size:16px;padding:14px 32px" onclick="showScreen('onboard')">Begin Your Journey →</button>
+      <button class="btn btn-outline" style="font-size:16px;padding:14px 32px" onclick="alert('Demo coming soon!')">Watch Demo</button>
+    </div>
+    <p class="hero-note">Trusted by 12,000+ students from 80+ countries • Free to use</p>
+  </div>
+</div>
+
+<!-- ONBOARDING -->
+<div id="screen-onboard" class="screen">
+  <div class="ob-box">
+    <div class="ob-hdr">
+      <div class="ob-brand">ScholarsPath</div>
+      <h2 class="ob-title">Build Your <span>Profile</span></h2>
+      <p class="ob-info" id="ob-step-info">Step 1 of 3 — 👤 Personal Info</p>
+    </div>
+    <div class="stepper">
+      <div class="sdot active" id="sd0">1</div><div class="sline" id="sl0"></div>
+      <div class="sdot todo" id="sd1">2</div><div class="sline" id="sl1"></div>
+      <div class="sdot todo" id="sd2">3</div>
+    </div>
+    <div class="card" style="padding:28px">
+      <div id="ob-s0">
+        <h3 style="font-size:20px;font-weight:400;margin-bottom:20px">👤 Personal Info</h3>
+        <div class="grid2">
+          <div class="fg"><label class="fl">Full Name</label><input class="fi" id="f-name" placeholder="Your full name"></div>
+          <div class="fg"><label class="fl">Email</label><input class="fi" id="f-email" type="email" placeholder="your@email.com"></div>
+          <div class="fg"><label class="fl">Nationality</label>
+            <select class="fi" id="f-nat"><option value="">Select country</option><option>Vietnam</option><option>Indonesia</option><option>Thailand</option><option>Philippines</option><option>India</option><option>Nigeria</option><option>Kenya</option><option>Ghana</option><option>Brazil</option><option>Mexico</option><option>Colombia</option><option>Egypt</option><option>Morocco</option><option>Pakistan</option><option>Bangladesh</option><option>Nepal</option><option>Myanmar</option><option>Cambodia</option><option>Sri Lanka</option><option>Other</option></select>
+          </div>
+          <div class="fg"><label class="fl">Degree Level</label>
+            <select class="fi" id="f-deg"><option value="">Select level</option><option>High School Graduate</option><option>Bachelor's Student</option><option>Bachelor's Graduate</option><option>Master's Student</option><option>Master's Graduate</option></select>
+          </div>
+        </div>
+      </div>
+      <div id="ob-s1" style="display:none">
+        <h3 style="font-size:20px;font-weight:400;margin-bottom:20px">📚 Academic Background</h3>
+        <div class="grid2">
+          <div class="fg"><label class="fl">Field of Study</label>
+            <select class="fi" id="f-field"><option value="">Select field</option><option>Computer Science</option><option>Engineering</option><option>Medicine</option><option>Business</option><option>Law</option><option>Social Sciences</option><option>Arts & Humanities</option><option>Natural Sciences</option><option>Agriculture</option><option>Education</option><option>Public Policy</option></select>
+          </div>
+          <div class="fg"><label class="fl">GPA</label>
+            <select class="fi" id="f-gpa"><option value="">Select range</option><option>3.8 – 4.0 (Excellent)</option><option>3.5 – 3.7 (Very Good)</option><option>3.0 – 3.4 (Good)</option><option>2.5 – 2.9 (Average)</option></select>
+          </div>
+          <div class="fg"><label class="fl">English Level</label>
+            <select class="fi" id="f-eng"><option value="">Select level</option><option>IELTS 7.5+ / TOEFL 105+</option><option>IELTS 7.0 / TOEFL 100</option><option>IELTS 6.5 / TOEFL 90</option><option>IELTS 6.0 / TOEFL 80</option><option>No Test Yet</option></select>
+          </div>
+          <div class="fg"><label class="fl">Korean Level</label>
+            <select class="fi" id="f-kor"><option value="">Select level</option><option>TOPIK 6 (Advanced)</option><option>TOPIK 5</option><option>TOPIK 4 (Intermediate)</option><option>TOPIK 3</option><option>TOPIK 1–2 (Beginner)</option><option>None</option></select>
+          </div>
+        </div>
+      </div>
+      <div id="ob-s2" style="display:none">
+        <h3 style="font-size:20px;font-weight:400;margin-bottom:20px">🎯 Scholarship Goals</h3>
+        <div class="fg"><label class="fl">Career Goal</label><textarea class="fi" id="f-goal" placeholder="e.g. I want to become an AI researcher and bring technology solutions to my country's agriculture sector..." style="min-height:90px"></textarea></div>
+        <div class="grid2">
+          <div class="fg"><label class="fl">Target Start Year</label><select class="fi" id="f-yr"><option value="">Select</option><option>2025</option><option>2026</option><option>2027</option></select></div>
+          <div class="fg"><label class="fl">Budget</label><select class="fi" id="f-bud"><option value="">Select</option><option>$0 (Fully sponsored only)</option><option>Up to $500</option><option>Up to $2,000</option><option>Flexible</option></select></div>
+        </div>
+        <div class="alert alert-i"><span>✦</span><span>Our AI will match you with scholarships where you have a 95%+ success probability!</span></div>
+      </div>
+      <div style="display:flex;justify-content:space-between;margin-top:10px">
+        <button class="btn btn-outline" id="ob-back" onclick="obBack()" style="visibility:hidden">← Back</button>
+        <button class="btn btn-primary" id="ob-next" onclick="obNext()">Continue →</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- APP SHELL -->
+<div id="screen-app" class="screen">
+  <nav class="sidebar">
+    <div class="sb-logo">S·P</div>
+    <button class="nav-btn active" id="nb-dashboard" onclick="showPage('dashboard')">⊞<span class="nav-tip">Dashboard</span></button>
+    <button class="nav-btn" id="nb-matches" onclick="showPage('matches')">🎯<span class="nav-tip">Matches</span></button>
+    <button class="nav-btn" id="nb-peers" onclick="showPage('peers')">🤝<span class="nav-tip">Peers</span></button>
+    <button class="nav-btn" id="nb-preapp" onclick="showPage('preapp')">📄<span class="nav-tip">Pre-Application</span></button>
+    <button class="nav-btn" id="nb-news" onclick="showPage('news')">📰<span class="nav-tip">News</span><span class="notif"></span></button>
+    <button class="nav-btn" id="nb-mental" onclick="showPage('mental')">💙<span class="nav-tip">Wellness</span></button>
+    <button class="nav-btn" id="nb-tips" onclick="showPage('tips')">💡<span class="nav-tip">Tips</span></button>
+    <button class="nav-btn" id="nb-interview" onclick="showPage('interview')">🎙<span class="nav-tip">Interview</span></button>
+    <button class="nav-btn" id="nb-career" onclick="showPage('career')">🗺<span class="nav-tip">Career Plan</span></button>
+  </nav>
+  <div class="main-area">
+    <div class="page active" id="page-dashboard"></div>
+    <div class="page" id="page-matches"></div>
+    <div class="page" id="page-peers"></div>
+    <div class="page" id="page-preapp"></div>
+    <div class="page" id="page-news"></div>
+    <div class="page" id="page-mental"></div>
+    <div class="page" id="page-tips"></div>
+    <div class="page" id="page-interview"></div>
+    <div class="page" id="page-career"></div>
+  </div>
+</div>
+
+<script>
+// ── DATA ──────────────────────────────────────────────────────────────────────
+const SCH=[
+  {id:1,name:"Korean Government Scholarship (KGSP)",country:"🇰🇷 South Korea",field:"All Fields",dl:"Sep 2025",amt:"Full Tuition + ₩900k/mo",score:98,tags:["Masters","PhD"],diff:"Competitive"},
+  {id:2,name:"Fulbright Foreign Student Program",country:"🇺🇸 USA",field:"All Fields",dl:"Oct 2025",amt:"Full + Stipend",score:96,tags:["Masters","PhD"],diff:"Very Competitive"},
+  {id:3,name:"Chevening Scholarship",country:"🇬🇧 UK",field:"All Fields",dl:"Nov 2025",amt:"Full + Living",score:95,tags:["Masters"],diff:"Competitive"},
+  {id:4,name:"DAAD Research Grant",country:"🇩🇪 Germany",field:"STEM / Humanities",dl:"Oct 2025",amt:"€1,200/mo + Benefits",score:97,tags:["PhD","Research"],diff:"Moderate"},
+  {id:5,name:"Australia Awards",country:"🇦🇺 Australia",field:"Development Areas",dl:"Apr 2026",amt:"Full + AUD$27k/yr",score:94,tags:["Masters","PhD"],diff:"Competitive"},
+  {id:6,name:"Erasmus Mundus Joint Master",country:"🇪🇺 EU",field:"Various",dl:"Jan 2026",amt:"€1,400/mo",score:93,tags:["Masters"],diff:"Competitive"},
+  {id:7,name:"Japanese MEXT Scholarship",country:"🇯🇵 Japan",field:"All Fields",dl:"May 2025",amt:"Full + ¥143k/mo",score:95,tags:["Masters","PhD"],diff:"Moderate"},
+  {id:8,name:"Swiss Government Excellence",country:"🇨🇭 Switzerland",field:"Research",dl:"Nov 2025",amt:"CHF 1,920/mo",score:91,tags:["PhD"],diff:"Very Competitive"},
+];
+const PEERS=[
+  {id:1,name:"Min-Jae Park",cc:"🇰🇷",target:"KGSP 2025",field:"Computer Science",online:true,col:"#4fd1c5"},
+  {id:2,name:"Amara Diallo",cc:"🇸🇳",target:"Fulbright 2025",field:"Public Policy",online:true,col:"#9f7aea"},
+  {id:3,name:"Wei Zhang",cc:"🇨🇳",target:"DAAD Research",field:"Materials Science",online:false,col:"#f6ad55"},
+  {id:4,name:"Sofia Reyes",cc:"🇲🇽",target:"Chevening 2025",field:"International Law",online:true,col:"#68d391"},
+  {id:5,name:"Arjun Mehta",cc:"🇮🇳",target:"Erasmus Mundus",field:"Data Science",online:false,col:"#fc814a"},
+  {id:6,name:"Fatima Al-Hassan",cc:"🇸🇦",target:"Australia Awards",field:"Public Health",online:true,col:"#f687b3"},
+];
+const NEWS=[
+  {id:1,e:"🇰🇷",title:"KGSP 2025 Opens: Record 3,500 Slots Available for International Students",date:"2h ago",tag:"Korea",tc:"bg",new:true},
+  {id:2,e:"🌍",title:"World Bank Launches $50M Scholarship Fund for Developing Nation Students",date:"5h ago",tag:"Global",tc:"bo",new:true},
+  {id:3,e:"🇬🇧",title:"Chevening 2025-26 Applications Now Open — Deadline Extended to December",date:"1d ago",tag:"UK",tc:"bp",new:false},
+  {id:4,e:"🇩🇪",title:"Germany Introduces New Visa-Free Pathway for DAAD Scholarship Recipients",date:"2d ago",tag:"Germany",tc:"bg",new:false},
+  {id:5,e:"🇯🇵",title:"MEXT Scholarship Adds 200 New Slots in Engineering & Technology Fields",date:"3d ago",tag:"Japan",tc:"bo",new:false},
+  {id:6,e:"🇺🇸",title:"Fulbright Boosts African Student Funding by 30% in 2025 Cycle",date:"4d ago",tag:"USA",tc:"bp",new:false},
+];
+const TIPS=[
+  {n:"01",t:"Craft a Compelling Personal Statement",b:"Tell a story — connect your past to your future goals and explain why this scholarship is essential. Use the STAR method (Situation, Task, Action, Result) for concrete examples."},
+  {n:"02",t:"Secure Strong Recommendation Letters Early",b:"Ask professors who know your work deeply. Give them 6–8 weeks notice and provide your CV, personal statement, and specific achievements you'd like highlighted."},
+  {n:"03",t:"Tailor Each Application Individually",b:"Generic applications fail. Research each scholarship's core values and mirror those themes. Selectors can spot a copy-paste essay instantly."},
+  {n:"04",t:"Demonstrate Language Proficiency Proactively",b:"For Korea: aim for TOPIK Level 3+ even if not required — it signals real commitment. For English, IELTS 7.0+ or TOEFL 100+ significantly boosts competitiveness."},
+  {n:"05",t:"Show Social Impact & Leadership",b:"Scholarships fund future leaders, not just scholars. Document volunteer work, club leadership, community projects — even small ones count when framed within a larger mission."},
+  {n:"06",t:"Prepare a Realistic Financial Plan",b:"Many applications ask how you'll fund gaps. Show committees you've thought through tuition, living costs, and family obligations — and have a clear plan."},
+];
+const IQ=[
+  "Tell me about yourself and why you chose to apply for this scholarship.",
+  "What is your long-term career goal and how does this scholarship help achieve it?",
+  "Why did you choose this specific country and university for your studies?",
+  "Describe a challenge you've faced and how you overcame it.",
+  "How will you contribute to your home country after completing your studies?",
+  "What makes you stand out from other applicants with similar academic backgrounds?",
+  "Tell us about a leadership experience that shaped who you are today.",
+  "How do you plan to adapt to living and studying in a different culture?",
+];
+const CAREER=[
+  {y:"2025–2026",phase:"Foundation",icon:"🎓",title:"Scholarship & Language Prep",items:["Apply to KGSP & Fulbright","Complete TOPIK Level 3","Publish 1 research paper","Build LinkedIn presence"]},
+  {y:"2026–2028",phase:"Academic",icon:"📚",title:"Master's Degree",items:["Complete coursework 3.8+ GPA","Present at 2 conferences","Build industry network","International internship"]},
+  {y:"2028–2030",phase:"Early Career",icon:"💼",title:"Professional Launch",items:["Join top firm in Korea or globally","Obtain professional certifications","Mentor junior scholars","Start thought leadership blog"]},
+  {y:"2030–2033",phase:"Growth",icon:"🚀",title:"Leadership & Impact",items:["Senior role or founding startup","Publish policy paper","Speak at TEDx or similar","Launch community initiative"]},
+  {y:"2033–2035",phase:"Legacy",icon:"🌍",title:"10-Year Milestone",items:["Director/VP level role","Advise government or NGO","Mentor 50+ young scholars","Establish scholarship fund"]},
+];
+
+// ── STATE ─────────────────────────────────────────────────────────────────────
+let profile={};
+let obStep=0;
+let selPeer=null;
+let pChats={};
+let wConvo=[{from:'ai',text:"Hi! I'm here to support you through your scholarship journey. How are you feeling today? 💙"}];
+let ivMode='setup',ivIdx=0,ivAnswers=[];
+let isRec=false,recInt=null,recSec=0;
+let mFilter='All',nFilter='All';
+
+// ── SCREENS ───────────────────────────────────────────────────────────────────
+function showScreen(id){
+  document.querySelectorAll('.screen').forEach(s=>{s.classList.remove('active');s.style.display='none';});
+  const el=document.getElementById('screen-'+id);
+  if(el){el.classList.add('active');el.style.display=(id==='app'?'flex':'block');}
+}
+
+function showPage(id){
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
+  const pg=document.getElementById('page-'+id);
+  const nb=document.getElementById('nb-'+id);
+  if(pg) pg.classList.add('active');
+  if(nb) nb.classList.add('active');
+  renderPage(id);
+}
+
+// ── ONBOARDING ────────────────────────────────────────────────────────────────
+function obNext(){
+  if(obStep<2){
+    document.getElementById('ob-s'+obStep).style.display='none';
+    obStep++;
+    document.getElementById('ob-s'+obStep).style.display='block';
+    updStepper();
+  } else {
+    profile={
+      name:document.getElementById('f-name').value||'Scholar',
+      email:document.getElementById('f-email').value||'',
+      nat:document.getElementById('f-nat').value||'',
+      deg:document.getElementById('f-deg').value||'',
+      field:document.getElementById('f-field').value||'',
+      gpa:document.getElementById('f-gpa').value||'',
+      eng:document.getElementById('f-eng').value||'',
+      kor:document.getElementById('f-kor').value||'',
+      goal:document.getElementById('f-goal').value||'',
+      yr:document.getElementById('f-yr').value||'2025',
+      bud:document.getElementById('f-bud').value||'',
+    };
+    initApp();
+    showScreen('app');
+    showPage('dashboard');
+  }
+}
+function obBack(){
+  if(obStep>0){
+    document.getElementById('ob-s'+obStep).style.display='none';
+    obStep--;
+    document.getElementById('ob-s'+obStep).style.display='block';
+    updStepper();
+  }
+}
+function updStepper(){
+  const lbls=['👤 Personal Info','📚 Academic Background','🎯 Scholarship Goals'];
+  document.getElementById('ob-step-info').textContent='Step '+(obStep+1)+' of 3 — '+lbls[obStep];
+  document.getElementById('ob-back').style.visibility=obStep===0?'hidden':'visible';
+  document.getElementById('ob-next').textContent=obStep===2?'🚀 Launch My Journey':'Continue →';
+  for(let i=0;i<3;i++){
+    const d=document.getElementById('sd'+i);
+    if(d){d.className='sdot '+(i<obStep?'done':i===obStep?'active':'todo');d.textContent=i<obStep?'✓':(i+1);}
+    const l=document.getElementById('sl'+i);
+    if(l) l.className='sline '+(i<obStep?'done':'');
+  }
+}
+
+// ── INIT APP ──────────────────────────────────────────────────────────────────
+function initApp(){
+  renderPage('dashboard');
+}
+function renderPage(id){
+  const map={dashboard:rDash,matches:rMatches,peers:rPeers,preapp:rPreApp,news:rNews,mental:rMental,tips:rTips,interview:rInterview,career:rCareer};
+  if(map[id]) map[id]();
+}
+
+// ── HEADER HELPER ─────────────────────────────────────────────────────────────
+function topbar(titleHtml,sub){
+  const n=profile.name||'Scholar';
+  return `<div class="topbar"><div><h1 class="page-title">${titleHtml}</h1><p class="sec-sub" style="margin-top:4px">${sub}</p></div>
+  <div class="user-chip"><div class="avatar">${n[0].toUpperCase()}</div><span>${n}</span></div></div>`;
+}
+
+// ── DASHBOARD ─────────────────────────────────────────────────────────────────
+function rDash(){
+  const pg=document.getElementById('page-dashboard');
+  const n=profile.name||'Scholar';
+  pg.innerHTML=`
+  ${topbar('Welcome back, <em>'+n.split(' ')[0]+'</em>','Your scholarship journey at a glance')}
+  <div class="grid4" style="margin-bottom:24px">
+    <div class="stat-card sc-teal"><div style="font-size:22px;margin-bottom:6px">🎯</div><div class="stat-num" style="color:var(--accent)">8</div><div class="stat-lbl">Matched Scholarships</div></div>
+    <div class="stat-card sc-orange"><div style="font-size:22px;margin-bottom:6px">📈</div><div class="stat-num" style="color:var(--accent2)">96%</div><div class="stat-lbl">Avg. Success Rate</div></div>
+    <div class="stat-card sc-purple"><div style="font-size:22px;margin-bottom:6px">🤝</div><div class="stat-num" style="color:var(--accent3)">6</div><div class="stat-lbl">Peer Connections</div></div>
+    <div class="stat-card sc-red"><div style="font-size:22px;margin-bottom:6px">📄</div><div class="stat-num" style="color:#fc814a">3</div><div class="stat-lbl">Apps In Progress</div></div>
+  </div>
+  <div class="grid2" style="margin-bottom:20px">
+    <div class="card">
+      <div style="font-size:18px;font-weight:500;margin-bottom:14px">🎯 Top Matches</div>
+      ${SCH.slice(0,3).map(s=>`<div class="match-card" onclick="showPage('matches')">
+        <div class="score-box ${s.score>=95?'score-hi':'score-md'}">${s.score}<br><span style="font-size:10px">%</span></div>
+        <div style="flex:1"><div style="font-weight:500;font-size:14px;margin-bottom:3px">${s.name}</div>
+        <div style="font-size:12px;color:var(--text3);display:flex;gap:8px;flex-wrap:wrap"><span>${s.country}</span><span>⏰ ${s.dl}</span><span style="color:var(--accent)">${s.amt.split('+')[0]}</span></div></div></div>`).join('')}
+    </div>
+    <div class="card">
+      <div style="font-size:18px;font-weight:500;margin-bottom:14px">📰 Latest News</div>
+      ${NEWS.slice(0,4).map(n=>`<div style="display:flex;gap:10px;padding:8px 0;border-bottom:1px solid var(--border);cursor:pointer" onclick="showPage('news')">
+        <span style="font-size:20px;flex-shrink:0">${n.e}</span>
+        <div><p style="font-size:13px;line-height:1.4;color:${n.new?'var(--text)':'var(--text3)'}">${n.title}</p>
+        <div style="display:flex;gap:6px;margin-top:3px;align-items:center">
+          <span class="badge ${n.tc}" style="font-size:10px">${n.tag}</span>
+          <span style="font-size:11px;color:var(--text3)">${n.date}</span>
+          ${n.new?'<span style="width:6px;height:6px;border-radius:50%;background:var(--accent2);display:inline-block"></span>':''}
+        </div></div></div>`).join('')}
+    </div>
+  </div>
+  <div class="card">
+    <div style="font-size:18px;font-weight:500;margin-bottom:14px">🗺 Your 10-Year Career Roadmap</div>
+    <div class="scroll-row">
+      ${CAREER.map(c=>`<div style="min-width:155px;background:var(--bg3);border-radius:12px;padding:13px;border:1px solid var(--border)">
+        <div style="font-size:22px;margin-bottom:6px">${c.icon}</div>
+        <div style="font-size:11px;color:var(--accent);font-weight:700;text-transform:uppercase;letter-spacing:1px">${c.y}</div>
+        <div style="font-weight:500;font-size:13px;margin:2px 0">${c.title}</div>
+        <div style="font-size:11px;color:var(--text3)">${c.phase}</div>
+      </div>`).join('')}
+    </div>
+  </div>`;
+}
+
+// ── MATCHES ───────────────────────────────────────────────────────────────────
+function rMatches(){
+  const pg=document.getElementById('page-matches');
+  const countries=['All','Korea','USA','UK','Germany','Japan','EU'];
+  const list=SCH.filter(s=>mFilter==='All'||s.country.includes(mFilter));
+  pg.innerHTML=`
+  ${topbar('Scholarship <em>Matches</em>','AI-matched — 95%+ success rate only')}
+  <div class="alert alert-i">🤖 Our AI analyzed your profile against 2,400+ scholarships worldwide. These are your highest-probability matches.</div>
+  <div class="tabs">${countries.map(c=>`<button class="tab ${mFilter===c?'active':''}" onclick="setMF('${c}')">${c}</button>`).join('')}</div>
+  <div>${list.map(s=>`<div class="match-card">
+    <div class="score-box ${s.score>=95?'score-hi':'score-md'}" style="flex-direction:column;gap:1px">
+      <span style="font-size:20px;font-weight:700">${s.score}</span><span style="font-size:10px;opacity:.8">%</span>
+    </div>
+    <div style="flex:1">
+      <div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap">
+        <div>
+          <div style="font-weight:500;font-size:15px;margin-bottom:4px">${s.name}</div>
+          <div style="font-size:12px;color:var(--text3);display:flex;gap:10px;flex-wrap:wrap;margin-bottom:6px"><span>${s.country}</span><span>📚 ${s.field}</span><span>⏰ ${s.dl}</span></div>
+          <div style="display:flex;gap:5px;flex-wrap:wrap">${s.tags.map(t=>`<span class="tag">${t}</span>`).join('')}<span class="badge ${s.diff==='Moderate'?'bo':s.diff==='Very Competitive'?'br':'bp'}">${s.diff}</span></div>
+        </div>
+        <div style="text-align:right;flex-shrink:0">
+          <div style="font-size:13px;color:var(--accent);font-weight:700;margin-bottom:8px">${s.amt}</div>
+          <div style="display:flex;gap:6px"><button class="btn btn-outline" style="padding:5px 10px;font-size:12px">Details</button><button class="btn btn-primary" style="padding:5px 10px;font-size:12px">Apply</button></div>
+        </div>
+      </div>
+      <div style="margin-top:10px">
+        <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text3);margin-bottom:3px"><span>Match Strength</span><span style="color:var(--accent)">${s.score}%</span></div>
+        <div class="prog-track"><div class="prog-fill pf-teal" style="width:${s.score}%"></div></div>
+      </div>
+    </div>
+  </div>`).join('')}</div>`;
+}
+function setMF(f){mFilter=f;rMatches();}
+
+// ── PEERS ─────────────────────────────────────────────────────────────────────
+function rPeers(){
+  const pg=document.getElementById('page-peers');
+  const chatPanel=selPeer?buildChat():
+    `<div class="card" style="display:flex;align-items:center;justify-content:center;min-height:300px;flex-direction:column;gap:10px;color:var(--text3)"><div style="font-size:44px">💬</div><p>Select a peer to start chatting</p></div>`;
+  pg.innerHTML=`
+  ${topbar('Peer <em>Community</em>','Connect with students applying to the same scholarships')}
+  <div class="grid2">
+    <div>${PEERS.map(p=>`<div class="peer-card ${selPeer&&selPeer.id===p.id?'sel':''}" onclick="selPeerFn(${p.id})">
+      <div class="peer-av" style="background:${p.col}">${p.name.split(' ').map(x=>x[0]).join('')}${p.online?'<span class="online-dot"></span>':''}</div>
+      <div style="flex:1"><div style="font-weight:500;font-size:14px">${p.name} ${p.cc}</div>
+      <div style="font-size:12px;color:var(--text3)">Applying: ${p.target}</div>
+      <div style="font-size:12px;color:var(--text3)">${p.field}</div></div>
+      <span class="badge ${p.online?'bg':'bo'}" style="font-size:10px">${p.online?'● Online':'Away'}</span>
+    </div>`).join('')}</div>
+    <div id="chat-panel">${chatPanel}</div>
+  </div>`;
+}
+function selPeerFn(id){selPeer=PEERS.find(p=>p.id===id);if(!pChats[id])pChats[id]=[];rPeers();}
+function buildChat(){
+  const p=selPeer;const msgs=pChats[p.id]||[];
+  return `<div class="card" style="display:flex;flex-direction:column;min-height:380px">
+    <div style="display:flex;align-items:center;gap:10px;padding-bottom:13px;margin-bottom:13px;border-bottom:1px solid var(--border)">
+      <div class="peer-av" style="background:${p.col};width:38px;height:38px;font-size:13px">${p.name.split(' ').map(x=>x[0]).join('')}</div>
+      <div style="flex:1"><div style="font-weight:500">${p.name} ${p.cc}</div><div style="font-size:12px;color:var(--text3)">Applying to ${p.target}</div></div>
+      ${p.online?'<span class="badge bg" style="font-size:10px">● Online</span>':''}
+    </div>
+    <div class="chat-wrap" id="chat-msgs">${msgs.length===0?`<div style="text-align:center;color:var(--text3);font-size:13px;padding:28px 0"><div style="font-size:30px;margin-bottom:8px">👋</div>Say hello to ${p.name.split(' ')[0]}!</div>`:
+      msgs.map(m=>`<div><div style="font-size:10px;color:var(--text3);margin-bottom:2px;text-align:${m.f==='me'?'right':'left'}">${m.f==='me'?'You':p.name.split(' ')[0]} · ${m.t}</div><div class="bubble ${m.f==='me'?'me':''}">${m.msg}</div></div>`).join('')}
+    </div>
+    <div style="display:flex;gap:8px;margin-top:auto">
+      <input class="fi" id="peer-inp" placeholder="Type a message..." style="flex:1" onkeydown="if(event.key==='Enter')sendPeer()">
+      <button class="btn btn-primary" onclick="sendPeer()">Send</button>
+    </div>
+  </div>`;
+}
+function sendPeer(){
+  const inp=document.getElementById('peer-inp');
+  if(!inp||!inp.value.trim()||!selPeer) return;
+  const t=new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
+  pChats[selPeer.id].push({msg:inp.value,f:'me',t});inp.value='';
+  document.getElementById('chat-panel').innerHTML=buildChat();
+  const r=["That's great! I'm also working on my personal statement 📝","Have you checked the new deadline update?","Let's connect for a study session this weekend!","I just got feedback from my professor, so helpful!","Which university are you targeting?"];
+  setTimeout(()=>{
+    pChats[selPeer.id].push({msg:r[Math.floor(Math.random()*r.length)],f:'peer',t:new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})});
+    document.getElementById('chat-panel').innerHTML=buildChat();
+    const cm=document.getElementById('chat-msgs');if(cm)cm.scrollTop=cm.scrollHeight;
+  },1300);
+  const cm=document.getElementById('chat-msgs');if(cm)cm.scrollTop=cm.scrollHeight;
+}
+
+// ── PRE-APPLICATION ───────────────────────────────────────────────────────────
+function rPreApp(){
+  document.getElementById('page-preapp').innerHTML=`
+  ${topbar('Pre-Application <em>Form</em>','Auto-generated from your profile — ready to submit')}
+  <div class="card" style="max-width:540px">
+    <div style="font-size:44px;margin-bottom:12px">📄</div>
+    <h3 style="font-size:20px;font-weight:400;margin-bottom:8px">Generate Your Application</h3>
+    <p style="color:var(--text2);font-size:13px;margin-bottom:18px">Select a scholarship and we'll pre-fill a complete application form using your profile data.</p>
+    <div class="fg"><label class="fl">Target Scholarship</label>
+      <select class="fi" id="pa-sel"><option value="">Choose scholarship</option>${SCH.map(s=>`<option value="${s.id}">${s.name}</option>`).join('')}</select>
+    </div>
+    <button class="btn btn-primary" style="width:100%;justify-content:center;padding:13px" onclick="genPreApp()">✨ Generate Pre-Application</button>
+  </div>`;
+}
+function genPreApp(){
+  const v=document.getElementById('pa-sel').value;
+  if(!v) return;
+  const s=SCH.find(x=>x.id==v);
+  document.getElementById('page-preapp').innerHTML=`
+  ${topbar('Pre-Application <em>Form</em>','Auto-generated from your profile')}
+  <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px">
+    <button class="btn btn-primary" onclick="alert('PDF download — connect a backend to enable this!')">📥 Download PDF</button>
+    <button class="btn btn-outline" onclick="alert('Copied!')">📋 Copy</button>
+    <button class="btn btn-ghost" onclick="rPreApp()">← Change</button>
+  </div>
+  <div class="doc-preview">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:18px;padding-bottom:14px;border-bottom:2px solid #e2e8f0">
+      <div><h2 style="font-size:20px;margin-bottom:4px;color:#2d3748">${s.name}</h2><p style="color:#718096;font-size:13px">Scholarship Application Form</p></div>
+      <div style="font-size:11px;color:#718096;text-align:right">ScholarsPath<br>${new Date().toLocaleDateString()}</div>
+    </div>
+    <h3 style="font-size:14px;color:#2d3748;margin-bottom:10px;font-weight:600">Personal Information</h3>
+    ${[['Full Name',profile.name||'[Your Name]'],['Email',profile.email||'[Your Email]'],['Nationality',profile.nat||'[Nationality]'],['Date of Birth','[To be filled]'],['Passport Number','[To be filled]']].map(([l,v])=>`<div class="doc-field"><span class="dl">${l}</span><span class="dv">${v}</span></div>`).join('')}
+    <h3 style="font-size:14px;color:#2d3748;margin:16px 0 10px;font-weight:600">Academic Background</h3>
+    ${[['Degree',profile.deg||'[Degree]'],['Field',profile.field||'[Field]'],['GPA',profile.gpa||'[GPA]'],['English',profile.eng||'[English]'],['Korean',profile.kor||'None']].map(([l,v])=>`<div class="doc-field"><span class="dl">${l}</span><span class="dv">${v}</span></div>`).join('')}
+    <h3 style="font-size:14px;color:#2d3748;margin:16px 0 10px;font-weight:600">Statement of Purpose (Draft)</h3>
+    <div style="background:#f7fafc;border-radius:8px;padding:14px;font-size:13px;line-height:1.7;color:#4a5568;border-left:3px solid #4fd1c5">
+      <p>I am applying for the ${s.name} with a strong conviction that this opportunity will enable me to realize my goal of ${profile.goal||"contributing to meaningful research and development in my field"}.</p><br>
+      <p>Having completed my ${profile.deg||"degree"} in ${profile.field||"my field"} with a GPA of ${profile.gpa||"excellent standing"}, I have a strong academic foundation ready for international academic excellence.</p><br>
+      <p>Studying in ${s.country.replace(/[\uD800-\uDFFF]./g,'').trim()} will broaden my horizons and equip me with a global perspective to address challenges in ${profile.nat||"my country"}.</p>
+    </div>
+  </div>`;
+}
+
+// ── NEWS ──────────────────────────────────────────────────────────────────────
+function rNews(){
+  const tags=['All','Korea','USA','UK','Germany','Japan','EU','Global'];
+  const list=NEWS.filter(n=>nFilter==='All'||n.tag===nFilter||nFilter==='Global');
+  document.getElementById('page-news').innerHTML=`
+  ${topbar('Scholarship <em>News</em>','Curated updates matched to your profile')}
+  <div class="tabs">${tags.map(t=>`<button class="tab ${nFilter===t?'active':''}" onclick="setNF('${t}')">${t}</button>`).join('')}</div>
+  <div class="grid3">${list.map(n=>`<div class="news-card">
+    <div class="news-img">${n.e}</div>
+    <div class="news-body">
+      <div style="display:flex;align-items:center;gap:7px;margin-bottom:7px">
+        <span class="badge ${n.tc}" style="font-size:10px">${n.tag}</span>
+        ${n.new?'<span style="width:6px;height:6px;border-radius:50%;background:var(--accent2);display:inline-block"></span>':''}
+      </div>
+      <div class="news-title">${n.title}</div>
+      <div class="news-meta"><span>⏱ ${n.date}</span><span>📖 2 min</span></div>
+    </div>
+  </div>`).join('')}</div>
+  <div class="card" style="margin-top:20px">
+    <div style="font-size:18px;font-weight:500;margin-bottom:14px">🔔 Set Up News Alerts</div>
+    <div class="grid2">
+      <div class="fg"><label class="fl">Alert Keywords</label><input class="fi" placeholder="e.g. STEM, Engineering, Korea..."></div>
+      <div class="fg"><label class="fl">Email Frequency</label><select class="fi"><option>Daily Digest</option><option>Weekly Summary</option><option>Instant Alerts</option></select></div>
+    </div>
+    <button class="btn btn-primary" onclick="alert('Alert preferences saved!')">Save Preferences</button>
+  </div>`;
+}
+function setNF(f){nFilter=f;rNews();}
+
+// ── MENTAL HEALTH ─────────────────────────────────────────────────────────────
+function rMental(){
+  const chatHtml=wConvo.map(m=>`<div><div style="font-size:10px;color:var(--text3);margin-bottom:2px;text-align:${m.from==='user'?'right':'left'}">${m.from==='ai'?'💙 Wellness Coach':'You'}</div>
+    <div class="bubble ${m.from==='user'?'me':''}" style="${m.from==='ai'?'background:rgba(159,122,234,0.08);border-color:rgba(159,122,234,0.2)':''}">${m.text}</div></div>`).join('');
+  document.getElementById('page-mental').innerHTML=`
+  ${topbar('Mental Health <em>Support</em>','Your wellbeing matters as much as your application')}
+  <div class="grid2" style="margin-bottom:20px">
+    <div class="card">
+      <div style="font-size:18px;font-weight:500;margin-bottom:5px">😊 How are you feeling today?</div>
+      <p style="color:var(--text3);font-size:13px;margin-bottom:16px">Check in daily — track your wellness journey</p>
+      <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap">
+        ${['😰','😟','😐','🙂','😊','🥳'].map(m=>`<button class="mood-btn" onclick="selMood('${m}',this)">${m}</button>`).join('')}
+      </div>
+      <div id="mood-msg" style="margin-top:14px;text-align:center;font-size:13px;color:var(--text2);min-height:20px"></div>
+    </div>
+    <div class="card">
+      <div style="font-size:18px;font-weight:500;margin-bottom:12px">📊 Your Wellness Streak</div>
+      <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:5px;margin-bottom:14px">
+        ${['M','T','W','T','F','S','S'].map(d=>`<div style="text-align:center;font-size:11px;color:var(--text3)">${d}</div>`).join('')}
+        ${[1,1,1,1,1,0.5,0].map(v=>`<div style="height:28px;border-radius:5px;background:rgba(79,209,197,${v*0.3});border:1px solid rgba(79,209,197,${v*0.4})"></div>`).join('')}
+      </div>
+      <div style="display:flex;gap:12px">
+        <div style="flex:1;background:var(--bg3);border-radius:10px;padding:10px;text-align:center"><div style="font-size:24px;font-weight:700;color:var(--accent)">6</div><div style="font-size:11px;color:var(--text3)">Day Streak</div></div>
+        <div style="flex:1;background:var(--bg3);border-radius:10px;padding:10px;text-align:center"><div style="font-size:24px;font-weight:700;color:var(--accent2)">82%</div><div style="font-size:11px;color:var(--text3)">Wellness Score</div></div>
+      </div>
+    </div>
+  </div>
+  <div class="card" style="margin-bottom:20px">
+    <div style="font-size:18px;font-weight:500;margin-bottom:5px">💬 AI Wellness Coach</div>
+    <p style="color:var(--text3);font-size:13px;margin-bottom:14px">Confidential support, available 24/7</p>
+    <div class="chat-wrap" id="w-chat">${chatHtml}</div>
+    <div style="display:flex;gap:8px">
+      <input class="fi" id="w-inp" placeholder="Share what's on your mind..." style="flex:1" onkeydown="if(event.key==='Enter')sendW()">
+      <button class="btn btn-purple" onclick="sendW()">Send 💙</button>
+    </div>
+  </div>
+  <div class="card">
+    <div style="font-size:18px;font-weight:500;margin-bottom:14px">🧘 Quick Exercises</div>
+    <div class="grid3">
+      <div style="background:var(--bg3);border-radius:12px;padding:14px;border:1px solid var(--border)"><div style="font-size:26px;margin-bottom:8px">🌬️</div><div style="font-weight:500;font-size:14px;margin-bottom:4px">4-7-8 Breathing</div><div style="font-size:12px;color:var(--text3);margin-bottom:8px;line-height:1.5">Inhale 4s, hold 7s, exhale 8s. Reduces anxiety instantly.</div><span class="badge bg">3 min</span></div>
+      <div style="background:var(--bg3);border-radius:12px;padding:14px;border:1px solid var(--border)"><div style="font-size:26px;margin-bottom:8px">📝</div><div style="font-weight:500;font-size:14px;margin-bottom:4px">Gratitude Journal</div><div style="font-size:12px;color:var(--text3);margin-bottom:8px;line-height:1.5">Write 3 things you are grateful for today.</div><span class="badge bo">5 min</span></div>
+      <div style="background:var(--bg3);border-radius:12px;padding:14px;border:1px solid var(--border)"><div style="font-size:26px;margin-bottom:8px">🚶</div><div style="font-weight:500;font-size:14px;margin-bottom:4px">Mindful Walk</div><div style="font-size:12px;color:var(--text3);margin-bottom:8px;line-height:1.5">Step away from screens and take a short walk.</div><span class="badge bp">10 min</span></div>
+    </div>
+  </div>`;
+  setTimeout(()=>{const c=document.getElementById('w-chat');if(c)c.scrollTop=c.scrollHeight;},50);
+}
+function selMood(m,btn){
+  document.querySelectorAll('.mood-btn').forEach(b=>b.classList.remove('sel'));btn.classList.add('sel');
+  document.getElementById('mood-msg').textContent=['😰','😟'].includes(m)?"Remember to take breaks and breathe. You've got this 💙":"Great to hear you're feeling positive! Keep that energy 🌟";
+}
+function sendW(){
+  const inp=document.getElementById('w-inp');
+  if(!inp||!inp.value.trim()) return;
+  wConvo.push({from:'user',text:inp.value});inp.value='';
+  const rs=["That's completely understandable. Application anxiety is very real. Remember: you've worked hard to get here. Take it one step at a time. 🌱","It's okay to feel overwhelmed. Try 25-minute focused sessions with short breaks. Small wins build momentum! 💪","You're not alone in this. Many successful scholars felt exactly the same way. The fact that you're pushing through shows incredible resilience. ✨","Take a deep breath. What's the ONE thing you can accomplish today that would make you feel good about your progress?","Imposter syndrome is incredibly common among high-achieving students. Trust your journey. 🎯"];
+  setTimeout(()=>{wConvo.push({from:'ai',text:rs[Math.floor(Math.random()*rs.length)]});rMental();},1200);
+  rMental();
+}
+
+// ── TIPS ──────────────────────────────────────────────────────────────────────
+function rTips(){
+  document.getElementById('page-tips').innerHTML=`
+  ${topbar('Scholarship <em>Tips</em>','Expert guidance to maximize your application success')}
+  <div class="alert alert-w">💡 Curated from successful KGSP, Fulbright, Chevening, and DAAD scholarship recipients.</div>
+  ${TIPS.map(t=>`<div class="tip-card"><span class="tip-num">${t.n}</span><div style="overflow:hidden"><div style="font-weight:600;font-size:15px;margin-bottom:5px">${t.t}</div><div style="font-size:13px;color:var(--text2);line-height:1.6;clear:both">${t.b}</div></div></div>`).join('')}
+  <div class="card" style="margin-top:20px;background:linear-gradient(135deg,rgba(79,209,197,.06),rgba(159,122,234,.06))">
+    <div style="font-size:18px;font-weight:500;margin-bottom:4px">📥 Download the Complete Guide</div>
+    <p style="color:var(--text2);font-size:13px;margin-bottom:14px">Get our 47-page scholarship preparation handbook — free for ScholarsPath members.</p>
+    <button class="btn btn-primary" onclick="alert('Download feature — connect a backend to enable PDF generation!')">Download Full Guide (PDF)</button>
+  </div>`;
+}
+
+// ── INTERVIEW ─────────────────────────────────────────────────────────────────
+function rInterview(){
+  const pg=document.getElementById('page-interview');
+  let content='';
+  if(ivMode==='setup'){
+    content=`<div class="card" style="max-width:520px">
+      <div style="font-size:44px;margin-bottom:14px">🎙️</div>
+      <h3 style="font-size:22px;font-weight:300;margin-bottom:8px">Prepare for Your Interview</h3>
+      <p style="color:var(--text2);font-size:14px;margin-bottom:20px">Practice answering real scholarship interview questions. Type or use voice to respond.</p>
+      <div class="fg"><label class="fl">Target Scholarship</label>
+        <select class="fi" id="iv-tgt"><option value="">Choose scholarship</option>${SCH.map(s=>`<option value="${s.name}">${s.name}</option>`).join('')}</select>
+      </div>
+      <div class="fg"><label class="fl">Number of Questions</label>
+        <select class="fi" id="iv-cnt"><option value="4">Beginner — 4 Questions</option><option value="8" selected>Standard — 8 Questions</option></select>
+      </div>
+      <button class="btn btn-primary" style="width:100%;justify-content:center;padding:13px" onclick="startIV()">🎙 Start Mock Interview</button>
+    </div>`;
+  } else if(ivMode==='interview'){
+    const q=IQ[ivIdx];const total=IQ.length;
+    content=`<div style="max-width:680px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-wrap:wrap;gap:8px">
+        <span class="badge bp">Question ${ivIdx+1} of ${total}</span>
+        <div style="display:flex;gap:4px">${IQ.map((_,i)=>`<div style="width:22px;height:4px;border-radius:2px;background:${i<ivIdx?'var(--accent)':i===ivIdx?'var(--accent2)':'var(--bg3)'}"></div>`).join('')}</div>
+      </div>
+      <div style="background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius);padding:22px;margin-bottom:18px">
+        <div style="font-size:11px;color:var(--accent);margin-bottom:7px;letter-spacing:1px;text-transform:uppercase">Interviewer</div>
+        <p style="font-size:17px;line-height:1.6;font-style:italic">"${q}"</p>
+      </div>
+      <div class="card" style="margin-bottom:16px">
+        <div style="display:flex;gap:12px;align-items:center;margin-bottom:12px">
+          <button class="voice-btn ${isRec?'rec':''}" id="v-btn" onclick="togRec()">${isRec?'⏹':'🎙'}</button>
+          <div>
+            <div style="font-weight:500;font-size:14px" id="rec-lbl">${isRec?'Recording... '+fmtT(recSec):'Click to Record Voice Answer'}</div>
+            <div style="font-size:12px;color:var(--text3)">${isRec?'Speak clearly and confidently':'Or type your answer below'}</div>
+          </div>
+        </div>
+        <textarea class="fi" id="iv-ans" placeholder="Type your answer here, or use the voice recorder..." style="min-height:110px"></textarea>
+      </div>
+      <div style="display:flex;gap:10px">
+        <button class="btn btn-outline" onclick="skipIV()">Skip</button>
+        <button class="btn btn-primary" style="flex:1;justify-content:center" onclick="subIV()">${ivIdx===total-1?'Finish Interview ✓':'Submit & Next →'}</button>
+      </div>
+    </div>`;
+  } else {
+    content=`<div style="max-width:680px">
+      <div style="text-align:center;margin-bottom:28px">
+        <div style="font-size:60px;margin-bottom:12px">🎉</div>
+        <h2 style="font-size:32px;font-weight:300;margin-bottom:8px">Interview Complete!</h2>
+        <p style="color:var(--text2)">Here's your performance breakdown and AI feedback</p>
+      </div>
+      <div class="grid3" style="margin-bottom:22px">
+        ${[['Overall Score','82%','var(--accent)'],['Confidence','78%','var(--accent2)'],['Clarity','86%','var(--accent3)']].map(([l,v,c])=>`<div class="card" style="text-align:center"><div style="font-size:34px;font-weight:700;color:${c}">${v}</div><div style="font-size:13px;color:var(--text3);margin-top:4px">${l}</div></div>`).join('')}
+      </div>
+      ${ivAnswers.slice(0,3).map((a,i)=>`<div class="card" style="margin-bottom:12px">
+        <div style="font-size:12px;color:var(--accent);margin-bottom:4px">Q${i+1}: ${a.q.substring(0,55)}...</div>
+        <div style="font-size:13px;color:var(--text2);margin-bottom:8px">${a.a.substring(0,100)}${a.a.length>100?'...':''}</div>
+        <div style="padding:8px 12px;background:rgba(79,209,197,.06);border-radius:8px;font-size:12px;color:var(--text2);border-left:2px solid var(--accent)">💡 AI Tip: Add a specific example with measurable outcomes to strengthen this answer.</div>
+      </div>`).join('')}
+      <button class="btn btn-primary" onclick="rstIV()" style="margin-top:6px">🔄 Practice Again</button>
+    </div>`;
+  }
+  pg.innerHTML=topbar('Interview <em>Simulator</em>','Practice with AI-powered mock scholarship interviews')+content;
+}
+function startIV(){ivMode='interview';ivIdx=0;ivAnswers=[];isRec=false;clearInterval(recInt);rInterview();}
+function subIV(){
+  const ans=document.getElementById('iv-ans');
+  const text=(ans&&ans.value.trim())||'[Voice response recorded]';
+  ivAnswers.push({q:IQ[ivIdx],a:text});
+  if(ivIdx<IQ.length-1){ivIdx++;isRec=false;clearInterval(recInt);recSec=0;rInterview();}
+  else{clearInterval(recInt);ivMode='results';rInterview();}
+}
+function skipIV(){if(ivIdx<IQ.length-1){ivIdx++;rInterview();}else{ivMode='results';rInterview();}}
+function rstIV(){ivMode='setup';ivIdx=0;ivAnswers=[];isRec=false;clearInterval(recInt);recSec=0;rInterview();}
+function togRec(){isRec?stopRec():startRec();}
+function startRec(){
+  isRec=true;recSec=0;
+  recInt=setInterval(()=>{recSec++;const l=document.getElementById('rec-lbl');if(l)l.textContent='Recording... '+fmtT(recSec);},1000);
+  const b=document.getElementById('v-btn');if(b){b.textContent='⏹';b.classList.add('rec');}
+}
+function stopRec(){
+  isRec=false;clearInterval(recInt);
+  const ans=document.getElementById('iv-ans');
+  if(ans&&!ans.value.trim())ans.value='[Voice response — '+fmtT(recSec)+'] Well-structured answer about motivation and goals...';
+  const b=document.getElementById('v-btn');if(b){b.textContent='🎙';b.classList.remove('rec');}
+}
+function fmtT(s){return Math.floor(s/60)+':'+(s%60).toString().padStart(2,'0');}
+
+// ── CAREER ────────────────────────────────────────────────────────────────────
+function rCareer(){
+  const n=profile.name||'Scholar';
+  document.getElementById('page-career').innerHTML=`
+  ${topbar('Career <em>Plan</em>','Your personalized 10-year roadmap & matched scholarships')}
+  <div class="card" style="margin-bottom:22px;background:linear-gradient(135deg,rgba(79,209,197,.05),rgba(159,122,234,.05))">
+    <div style="display:flex;gap:18px;align-items:center;flex-wrap:wrap">
+      <div style="font-size:44px">🗺️</div>
+      <div style="flex:1">
+        <h3 style="font-size:20px;font-weight:400;margin-bottom:4px">${n.split(' ')[0]}'s 10-Year Vision</h3>
+        <p style="color:var(--text2);font-size:13px;line-height:1.6">${profile.goal||"Become a global leader in your field through world-class education and impactful research."}</p>
+      </div>
+      <div style="display:flex;gap:10px">
+        <div style="text-align:center;padding:8px 14px;background:var(--bg3);border-radius:10px"><div style="font-size:18px;font-weight:700;color:var(--accent)">${profile.yr||'2025'}</div><div style="font-size:11px;color:var(--text3)">Start Year</div></div>
+        <div style="text-align:center;padding:8px 14px;background:var(--bg3);border-radius:10px"><div style="font-size:18px;font-weight:700;color:var(--accent2)">2035</div><div style="font-size:11px;color:var(--text3)">Vision Year</div></div>
+      </div>
+    </div>
+  </div>
+  <div class="grid2">
+    <div>
+      <div style="font-size:18px;font-weight:500;margin-bottom:18px">📍 Your Roadmap</div>
+      ${CAREER.map(c=>`<div class="tl-item"><div class="tl-dot">${c.icon}</div>
+        <div class="tl-content"><div class="year-tag">${c.y} · ${c.phase}</div>
+        <div style="font-weight:500;font-size:15px;margin:3px 0">${c.title}</div>
+        ${c.items.map(i=>`<div style="font-size:12px;color:var(--text2);display:flex;gap:5px;margin-top:3px"><span style="color:var(--accent)">→</span>${i}</div>`).join('')}
+        </div></div>`).join('')}
+    </div>
+    <div>
+      <div style="font-size:18px;font-weight:500;margin-bottom:18px">🎯 Scholarships for Your Path</div>
+      ${SCH.map(s=>`<div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:12px 14px;margin-bottom:8px;display:flex;gap:10px;align-items:center">
+        <div style="font-size:22px;flex-shrink:0">${s.country.charAt(0)+s.country.charAt(1)}</div>
+        <div style="flex:1"><div style="font-size:13px;font-weight:500;margin-bottom:1px">${s.name}</div><div style="font-size:11px;color:var(--text3)">${s.amt} · ${s.dl}</div></div>
+        <div style="text-align:right"><div style="font-size:15px;font-weight:700;color:${s.score>=95?'var(--accent)':'var(--accent2)'}">${s.score}%</div><div style="font-size:10px;color:var(--text3)">match</div></div>
+      </div>`).join('')}
+      <div class="card" style="margin-top:14px">
+        <div style="font-size:22px;margin-bottom:8px">📊</div>
+        <div style="font-weight:500;margin-bottom:4px">Career Alignment Score</div>
+        <p style="font-size:12px;color:var(--text2);margin-bottom:14px">Your profile aligns strongly with research and academic paths internationally.</p>
+        ${[['Academia / Research',92,'pf-teal'],['Tech Industry',88,'pf-orange'],['Government / Policy',74,'pf-purple'],['NGO / Development',70,'pf-teal']].map(([l,v,c])=>`
+          <div style="margin-bottom:10px">
+            <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--text2);margin-bottom:3px"><span>${l}</span><span style="color:var(--accent)">${v}%</span></div>
+            <div class="prog-track"><div class="prog-fill ${c}" style="width:${v}%"></div></div>
+          </div>`).join('')}
+      </div>
+    </div>
+  </div>`;
+}
+</script>
+</body>
+</html>
