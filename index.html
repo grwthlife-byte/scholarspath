@@ -241,9 +241,6 @@ textarea.fi{resize:vertical;min-height:80px}
           <div class="fg"><label class="fl">English Level</label>
             <select class="fi" id="f-eng"><option value="">Select level</option><option>IELTS 7.5+ / TOEFL 105+</option><option>IELTS 7.0 / TOEFL 100</option><option>IELTS 6.5 / TOEFL 90</option><option>IELTS 6.0 / TOEFL 80</option><option>No Test Yet</option></select>
           </div>
-          <div class="fg"><label class="fl">Korean Level</label>
-            <select class="fi" id="f-kor"><option value="">Select level</option><option>TOPIK 6 (Advanced)</option><option>TOPIK 5</option><option>TOPIK 4 (Intermediate)</option><option>TOPIK 3</option><option>TOPIK 1–2 (Beginner)</option><option>None</option></select>
-          </div>
         </div>
       </div>
       <div id="ob-s2" style="display:none">
@@ -491,7 +488,7 @@ function obNext(){
       field:document.getElementById('f-field').value||'',
       gpa:document.getElementById('f-gpa').value||'',
       eng:document.getElementById('f-eng').value||'',
-      kor:document.getElementById('f-kor').value||'',
+      kor:'',
       goal:document.getElementById('f-goal').value||'',
       yr:document.getElementById('f-yr').value||'2025',
       bud:document.getElementById('f-bud').value||'',
@@ -702,7 +699,7 @@ function genPreApp(){
     <h3 style="font-size:14px;color:#2d3748;margin-bottom:10px;font-weight:600">Personal Information</h3>
     ${[['Full Name',profile.name||'[Your Name]'],['Email',profile.email||'[Your Email]'],['Nationality',profile.nat||'[Nationality]'],['Date of Birth','[To be filled]'],['Passport Number','[To be filled]']].map(([l,v])=>`<div class="doc-field"><span class="dl">${l}</span><span class="dv">${v}</span></div>`).join('')}
     <h3 style="font-size:14px;color:#2d3748;margin:16px 0 10px;font-weight:600">Academic Background</h3>
-    ${[['Degree',profile.deg||'[Degree]'],['Field',profile.field||'[Field]'],['GPA',profile.gpa||'[GPA]'],['English',profile.eng||'[English]'],['Korean',profile.kor||'None']].map(([l,v])=>`<div class="doc-field"><span class="dl">${l}</span><span class="dv">${v}</span></div>`).join('')}
+    ${[['Degree',profile.deg||'[Degree]'],['Field',profile.field||'[Field]'],['GPA',profile.gpa||'[GPA]'],['English',profile.eng||'[English]']].map(([l,v])=>`<div class="doc-field"><span class="dl">${l}</span><span class="dv">${v}</span></div>`).join('')}
     <h3 style="font-size:14px;color:#2d3748;margin:16px 0 10px;font-weight:600">Statement of Purpose (Draft)</h3>
     <div style="background:#f7fafc;border-radius:8px;padding:14px;font-size:13px;line-height:1.7;color:#4a5568;border-left:3px solid #4fd1c5">
       <p>I am applying for the ${s.name} with a strong conviction that this opportunity will enable me to realize my goal of ${profile.goal||"contributing to meaningful research and development in my field"}.</p><br>
