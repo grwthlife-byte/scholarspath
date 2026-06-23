@@ -4,6 +4,7 @@
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <title>ScholarsPath — Global Scholarship Platform</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
@@ -173,15 +174,36 @@ textarea.fi{resize:vertical;min-height:80px}
       <span class="pill">🎙 Interview Simulator</span><span class="pill">🗺 10-Year Career Plan</span>
     </div>
     <div class="hero-btns">
-      <button class="btn btn-primary" style="font-size:16px;padding:14px 32px" onclick="showScreen('onboard')">Begin Your Journey →</button>
+      <button class="btn btn-primary" style="font-size:16px;padding:14px 32px" onclick="showScreen('auth')">Begin Your Journey →</button>
       <button class="btn btn-outline" style="font-size:16px;padding:14px 32px" onclick="alert('Demo coming soon!')">Watch Demo</button>
     </div>
     <p class="hero-note">Trusted by 12,000+ students from 80+ countries • Free to use</p>
   </div>
 </div>
 
+<!-- AUTH -->
+<div id="screen-auth" class="screen">
+  <div class="ob-box" style="max-width:440px;margin:0 auto;display:flex;flex-direction:column;justify-content:center;min-height:100vh;padding:40px 20px">
+    <div class="ob-hdr">
+      <div class="ob-brand">ScholarsPath</div>
+      <h2 class="ob-title" id="auth-title">Create Your <span>Account</span></h2>
+      <p class="ob-info" id="auth-sub">Sign up to start your scholarship journey</p>
+    </div>
+    <div class="card" style="padding:26px">
+      <div class="tabs" style="margin-bottom:20px">
+        <button class="tab active" id="tab-signup" onclick="setAuthMode('signup')">Sign Up</button>
+        <button class="tab" id="tab-login" onclick="setAuthMode('login')">Log In</button>
+      </div>
+      <div class="fg"><label class="fl">Email</label><input class="fi" id="auth-email" type="email" placeholder="your@email.com"></div>
+      <div class="fg"><label class="fl">Password</label><input class="fi" id="auth-pass" type="password" placeholder="At least 6 characters" onkeydown="if(event.key==='Enter')doAuth()"></div>
+      <div id="auth-err" style="font-size:13px;color:#fc814a;min-height:18px;margin-bottom:10px"></div>
+      <button class="btn btn-primary" id="auth-btn" style="width:100%;justify-content:center;padding:13px" onclick="doAuth()">Sign Up →</button>
+      <p style="text-align:center;font-size:12px;color:var(--text3);margin-top:14px">🔒 Your data is private and secure</p>
+    </div>
+  </div>
+</div>
+
 <!-- ONBOARDING -->
-<div id="screen-onboard" class="screen">
   <div class="ob-box">
     <div class="ob-hdr">
       <div class="ob-brand">ScholarsPath</div>
@@ -254,6 +276,7 @@ textarea.fi{resize:vertical;min-height:80px}
     <button class="nav-btn" id="nb-tips" onclick="showPage('tips')">💡<span class="nav-tip">Tips</span></button>
     <button class="nav-btn" id="nb-interview" onclick="showPage('interview')">🎙<span class="nav-tip">Interview</span></button>
     <button class="nav-btn" id="nb-career" onclick="showPage('career')">🗺<span class="nav-tip">Career Plan</span></button>
+    <button class="nav-btn" onclick="doLogout()" style="margin-top:auto" title="Log Out">⎋<span class="nav-tip">Log Out</span></button>
   </nav>
   <div class="main-area">
     <div class="page active" id="page-dashboard"></div>
@@ -269,6 +292,109 @@ textarea.fi{resize:vertical;min-height:80px}
 </div>
 
 <script>
+// ── SUPABASE CONFIG ───────────────────────────────────────────────────────────
+const SUPABASE_URL='https://igvxyeuwmqjzdltojtcl.supabase.co';
+const SUPABASE_KEY='sb_publishable_bjsOScqoQ_1gzIKotVqFYw_1-st0jEb';
+let sb=null;
+let authMode='signup';
+
+function setAuthMode(m){
+  authMode=m;
+  document.getElementById('tab-signup').classList.toggle('active',m==='signup');
+  document.getElementById('tab-login').classList.toggle('active',m==='login');
+  document.getElementById('auth-title').innerHTML=m==='signup'?'Create Your <span>Account</span>':'Welcome <span>Back</span>';
+  document.getElementById('auth-sub').textContent=m==='signup'?'Sign up to start your scholarship journey':'Log in to continue your journey';
+  document.getElementById('auth-btn').textContent=m==='signup'?'Sign Up →':'Log In →';
+  const e=document.getElementById('auth-err');e.textContent='';e.style.color='#fc814a';
+}
+
+async function doAuth(){
+  const email=document.getElementById('auth-email').value.trim();
+  const pass=document.getElementById('auth-pass').value;
+  const err=document.getElementById('auth-err');
+  err.style.color='#fc814a';
+  if(!email||!pass){err.textContent='Please enter your email and password.';return;}
+  if(pass.length<6){err.textContent='Password must be at least 6 characters.';return;}
+  const btn=document.getElementById('auth-btn');
+  btn.textContent='Please wait...';btn.disabled=true;
+  let res;
+  if(authMode==='signup') res=await sb.auth.signUp({email,password:pass});
+  else res=await sb.auth.signInWithPassword({email,password:pass});
+  btn.disabled=false;
+  btn.textContent=authMode==='signup'?'Sign Up →':'Log In →';
+  if(res.error){err.textContent=res.error.message;return;}
+  if(!res.data.session){
+    err.style.color='var(--accent)';
+    err.textContent='✓ Account created! Please check your email to confirm, then log in.';
+    setAuthMode('login');
+    return;
+  }
+  await afterLogin();
+}
+
+async function doLogout(){
+  if(sb) await sb.auth.signOut();
+  location.reload();
+}
+
+async function afterLogin(){
+  const p=await loadProfile();
+  if(p){ showScreen('app'); showPage('dashboard'); }
+  else { showScreen('onboard'); }
+}
+
+async function saveProfile(){
+  const {data:{user}}=await sb.auth.getUser();
+  if(!user) return;
+  await sb.from('profiles').upsert({
+    id:user.id,
+    full_name:profile.name||'Scholar',
+    email:profile.email||user.email,
+    nationality:profile.nat||'',
+    degree:profile.deg||'',
+    field:profile.field||'',
+    gpa:profile.gpa||'',
+    english:profile.eng||'',
+    korean:profile.kor||'',
+    goal:profile.goal||'',
+    target_year:profile.yr||'',
+    budget:profile.bud||''
+  });
+}
+
+async function loadProfile(){
+  const {data:{user}}=await sb.auth.getUser();
+  if(!user) return null;
+  const {data}=await sb.from('profiles').select('*').eq('id',user.id).maybeSingle();
+  if(data){
+    profile={
+      name:data.full_name||'Scholar',
+      email:data.email||user.email,
+      nat:data.nationality||'',
+      deg:data.degree||'',
+      field:data.field||'',
+      gpa:data.gpa||'',
+      eng:data.english||'',
+      kor:data.korean||'',
+      goal:data.goal||'',
+      yr:data.target_year||'2025',
+      bud:data.budget||''
+    };
+    return profile;
+  }
+  return null;
+}
+
+async function initSupabase(){
+  sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
+  const {data:{session}}=await sb.auth.getSession();
+  if(session){
+    const p=await loadProfile();
+    if(p){ showScreen('app'); showPage('dashboard'); }
+    else { showScreen('onboard'); }
+  }
+}
+
 // ── DATA ──────────────────────────────────────────────────────────────────────
 const SCH=[
   {id:1,name:"Korean Government Scholarship (KGSP)",country:"🇰🇷 South Korea",field:"All Fields",dl:"Sep 2025",amt:"Full Tuition + ₩900k/mo",score:98,tags:["Masters","PhD"],diff:"Competitive"},
@@ -371,6 +497,7 @@ function obNext(){
       bud:document.getElementById('f-bud').value||'',
     };
     initApp();
+    saveProfile();
     showScreen('app');
     showPage('dashboard');
   }
@@ -820,6 +947,9 @@ function rCareer(){
     </div>
   </div>`;
 }
+
+// ── START ─────────────────────────────────────────────────────────────────────
+initSupabase();
 </script>
 </body>
 </html>
