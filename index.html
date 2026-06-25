@@ -22,7 +22,8 @@ body{background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,san
 .glow2{position:fixed;width:500px;height:500px;border-radius:50%;background:rgba(159,122,234,0.08);filter:blur(120px);bottom:-100px;right:5%;pointer-events:none;z-index:0}
 .screen{display:none;position:relative;z-index:1;min-height:100vh}
 .screen.active{display:block}
-#screen-landing{display:flex;align-items:center;justify-content:center;text-align:center;padding:40px 20px}
+#screen-landing{align-items:center;justify-content:center;text-align:center;padding:40px 20px}
+#screen-landing.active{display:flex}
 .hero-badge{display:inline-flex;align-items:center;gap:10px;background:rgba(79,209,197,0.08);border:1px solid rgba(79,209,197,0.2);border-radius:30px;padding:8px 20px;font-size:12px;letter-spacing:3px;color:var(--accent);text-transform:uppercase;margin-bottom:28px}
 .hero-title{font-size:clamp(44px,8vw,88px);font-weight:300;line-height:0.95;letter-spacing:-2px;margin-bottom:24px}
 .hero-title em{font-style:italic;color:var(--accent)}
@@ -40,7 +41,8 @@ body{background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,san
   .lang-select{padding:6px 8px;font-size:12px}
   .btn-sm{padding:7px 12px;font-size:12px}
 }
-#screen-onboard{display:flex;align-items:center;justify-content:center;padding:40px 20px;min-height:100vh}
+#screen-onboard{align-items:center;justify-content:center;padding:40px 20px;min-height:100vh}
+#screen-onboard.active{display:flex}
 .ob-box{width:100%;max-width:620px;position:relative;z-index:1}
 .ob-hdr{text-align:center;margin-bottom:28px}
 .ob-brand{font-size:12px;letter-spacing:4px;color:var(--accent);text-transform:uppercase;margin-bottom:8px}
@@ -541,9 +543,9 @@ let mFilter='All',nFilter='All';
 
 // ── SCREENS ───────────────────────────────────────────────────────────────────
 function showScreen(id){
-  document.querySelectorAll('.screen').forEach(s=>{s.classList.remove('active');s.style.display='none';});
+  document.querySelectorAll('.screen').forEach(s=>{s.classList.remove('active');s.style.display='';});
   const el=document.getElementById('screen-'+id);
-  if(el){el.classList.add('active');el.style.display=(id==='app'?'flex':'block');}
+  if(el) el.classList.add('active');
 }
 
 function showPage(id){
