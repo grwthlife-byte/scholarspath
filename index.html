@@ -168,6 +168,54 @@ textarea.fi{resize:vertical;min-height:80px}
   .nav-tip{display:none}
   .sb-logo{display:none}
 }
+/* ===== Smart Match engine ===== */
+.sm-hidden{display:none}
+.sm-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+@media(max-width:600px){.sm-grid{grid-template-columns:1fr}}
+.sm-fl{display:block;font-size:12px;letter-spacing:.4px;text-transform:uppercase;color:var(--text2);margin:0 0 6px}
+.sm-fi{width:100%;background:var(--bg2);border:1px solid var(--border);border-radius:10px;color:var(--text);padding:11px 12px;font-size:14px;font-family:inherit;outline:none}
+.sm-fi:focus{border-color:var(--accent)}
+.sm-row2{display:grid;grid-template-columns:2fr 1fr;gap:10px}
+.sm-q{padding:13px 0;border-bottom:1px solid var(--border)}
+.sm-q:last-child{border-bottom:none}
+.sm-qt{font-size:14px;color:var(--text);margin-bottom:10px;font-weight:500}
+.sm-opts{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+@media(max-width:600px){.sm-opts{grid-template-columns:1fr}}
+.sm-opt{border:1px solid var(--border);border-radius:10px;padding:11px 13px;font-size:13.5px;color:var(--text2);cursor:pointer;background:var(--bg2);transition:.15s}
+.sm-opt:hover{border-color:var(--accent)}
+.sm-opt.sel{border-color:var(--accent);background:rgba(79,209,197,.1);color:var(--text)}
+.sm-mind-type{font-size:22px;font-weight:700;color:var(--accent)}
+.sm-axis{margin:13px 0}
+.sm-albl{display:flex;justify-content:space-between;font-size:12px;color:var(--text2);margin-bottom:5px}
+.sm-albl b{color:var(--text)}
+.sm-track{height:8px;background:var(--bg2);border:1px solid var(--border);border-radius:6px;position:relative}
+.sm-dot{position:absolute;top:-4px;width:16px;height:16px;border-radius:50%;background:var(--accent);box-shadow:0 0 0 3px rgba(79,209,197,.2);transform:translateX(-50%)}
+.sm-reco{background:rgba(79,209,197,.07);border:1px solid var(--accent);border-radius:12px;padding:16px}
+.sm-rtag{display:inline-block;font-size:11px;letter-spacing:.5px;text-transform:uppercase;color:#04110f;background:var(--accent);border-radius:20px;padding:3px 10px;font-weight:700;margin-bottom:10px}
+.sm-disc{font-size:12px;color:var(--text3);font-style:italic;margin-top:10px}
+.sm-note{font-size:13px;color:var(--text2);background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:16px}
+.sm-match{border:1px solid var(--border);border-radius:14px;padding:18px;margin-bottom:14px;background:var(--card2)}
+.sm-match.inelig{opacity:.72}
+.sm-mh{display:flex;justify-content:space-between;align-items:flex-start;gap:14px}
+.sm-nm{font-size:16px;font-weight:600}
+.sm-pv{font-size:12.5px;color:var(--text3)}
+.sm-ring{flex:none;width:62px;height:62px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:18px}
+.sm-ribbon{display:inline-block;font-size:11px;font-weight:700;letter-spacing:.3px;border-radius:6px;padding:3px 9px;margin:10px 0}
+.sm-eo{background:rgba(95,211,138,.14);color:#5fd38a}
+.sm-ew{background:rgba(246,173,85,.16);color:var(--accent2)}
+.sm-eb{background:rgba(252,122,110,.16);color:#fc7a6e}
+.sm-chips{display:flex;flex-wrap:wrap;gap:7px;margin:6px 0 4px}
+.sm-chip{font-size:12px;border-radius:7px;padding:4px 9px;border:1px solid var(--border);color:var(--text2)}
+.sm-chip.ok{border-color:rgba(95,211,138,.4);color:#5fd38a}
+.sm-chip.no{border-color:rgba(252,122,110,.4);color:#fc7a6e}
+.sm-gaps{margin-top:10px;background:var(--bg2);border:1px dashed var(--border);border-radius:10px;padding:11px 13px}
+.sm-gt{font-size:12px;font-weight:700;color:var(--accent2);letter-spacing:.4px;text-transform:uppercase;margin-bottom:6px}
+.sm-gaps ul{margin:0;padding-left:18px}
+.sm-gaps li{font-size:13px;color:var(--text2);margin:3px 0}
+.sm-meta{font-size:12.5px;color:var(--text3);margin-top:10px}
+.sm-meta a{color:var(--accent);text-decoration:none}
+.sm-err{color:#fc7a6e;font-size:13px;margin-top:8px;min-height:16px}
+.sm-center{text-align:center;margin-top:6px}
 </style>
 </head>
 <body>
@@ -668,7 +716,7 @@ function rDash(){
 }
 
 // ── MATCHES ───────────────────────────────────────────────────────────────────
-function rMatches(){
+function rMatchesLegacy(){
   const pg=document.getElementById('page-matches');
   const countries=['All','Korea','USA','UK','Germany','Japan','EU'];
   const list=SCH.filter(s=>mFilter==='All'||s.country.includes(mFilter));
@@ -699,7 +747,169 @@ function rMatches(){
     </div>
   </div>`).join('')}</div>`;
 }
-function setMF(f){mFilter=f;rMatches();}
+function setMF(f){mFilter=f;rMatchesLegacy();}
+
+// ===================== SMART MATCH ENGINE (calibrated) =====================
+const sm_DEVELOPING=new Set(["Gabon","Cameroon","Nigeria","Ghana","Senegal","Ivory Coast","Côte d'Ivoire","Mali","Burkina Faso","Niger","Chad","Central African Republic","Republic of the Congo","Democratic Republic of the Congo","Benin","Togo","Guinea","Guinea-Bissau","Sierra Leone","Liberia","Mauritania","Gambia","Kenya","Uganda","Tanzania","Rwanda","Burundi","Ethiopia","Somalia","South Sudan","Sudan","Eritrea","Djibouti","Madagascar","Mozambique","Malawi","Zambia","Zimbabwe","Angola","Namibia","Botswana","Lesotho","Eswatini","Comoros","Cape Verde","Equatorial Guinea","Egypt","Morocco","Algeria","Tunisia","Libya","South Africa","India","Pakistan","Bangladesh","Sri Lanka","Nepal","Bhutan","Myanmar","Cambodia","Laos","Vietnam","Philippines","Indonesia","Mongolia","Uzbekistan","Kyrgyzstan","Tajikistan","Afghanistan","Yemen","Syria","Iraq","Palestine","Bolivia","Honduras","Nicaragua","Guatemala","El Salvador","Haiti","Guyana","Papua New Guinea","Fiji","Samoa","Vanuatu","Solomon Islands","Timor-Leste"]);
+const sm_ENG_RANK={none:0,basic:1,intermediate:2,advanced:3,native:4};
+const sm_SCHOLARSHIPS=[
+  {id:"gks",name:"Global Korea Scholarship (GKS)",provider:"NIIED — Korean Government",country:"South Korea",openTo:"partner",levels:["undergraduate","masters","phd"],fields:"all",minGpaPct:80,englishMin:"intermediate",ageMaxUg:25,ageMaxGrad:40,type:["fully","government"],funding:"Full tuition + ~₩900k–1M/mo + airfare + Korean year",deadline:"Grad Feb–Mar · UG Sep–Oct (varies by country)",url:"https://www.studyinkorea.go.kr",env:["structured","applied","collaborative"]},
+  {id:"fulbright",name:"Fulbright Foreign Student Program",provider:"U.S. Dept. of State (IIE)",country:"United States",openTo:"partner",levels:["masters","phd"],fields:["humanities","social","business","law","natural","engineering","ict","agriculture","education","arts"],minGpaPct:80,englishMin:"advanced",ageMaxUg:null,ageMaxGrad:null,type:["fully","government","research"],funding:"Tuition + airfare + stipend + health insurance",deadline:"Varies by country (~Feb–Jul 2026 for 2027–28)",url:"https://foreign.fulbrightonline.org",env:["independent","theoretical","analytical","exploratory"]},
+  {id:"chevening",name:"Chevening Scholarship",provider:"UK Government (FCDO)",country:"United Kingdom",openTo:"partner",levels:["masters"],fields:"all",minGpaPct:65,englishMin:"advanced",ageMaxUg:null,ageMaxGrad:null,type:["fully","government","development"],funding:"Full tuition + stipend + airfare + allowances",deadline:"7 Oct 2026 for 2027–28",url:"https://www.chevening.org",env:["collaborative","humanistic","applied","leadership"]},
+  {id:"daad",name:"DAAD EPOS (Development-Related)",provider:"DAAD — Germany",country:"Germany",openTo:"developing",levels:["masters","phd"],fields:["social","business","engineering","ict","agriculture","medicine","natural","education"],minGpaPct:75,englishMin:"intermediate",ageMaxUg:null,ageMaxGrad:null,type:["fully","development","government"],funding:"€992/mo (MA) · €1,300–1,400 (PhD) + insurance + travel",deadline:"Varies by course (Aug–Nov)",url:"https://www.daad.de/epos",env:["applied","structured","analytical","development"]},
+  {id:"mext",name:"MEXT Japanese Government Scholarship",provider:"MEXT — Japan",country:"Japan",openTo:"partner",levels:["undergraduate","masters","phd"],fields:"all",minGpaPct:80,englishMin:"basic",ageMaxUg:24,ageMaxGrad:34,type:["fully","government","research"],funding:"Full tuition + ¥143k–145k/mo + airfare + language training",deadline:"Embassy track opens Apr–Jun (varies by country)",url:"https://www.studyinjapan.go.jp/en",env:["independent","theoretical","analytical","structured"]},
+  {id:"australia",name:"Australia Awards Scholarships",provider:"Australian Government (DFAT)",country:"Australia",openTo:"developing",levels:["undergraduate","masters","phd"],fields:"all",minGpaPct:null,englishMin:"advanced",ageMaxUg:null,ageMaxGrad:null,type:["fully","government","development"],funding:"Full tuition + airfare + living + establishment allowance",deadline:"30 Apr 2026 for 2027 (varies by country)",url:"https://www.dfat.gov.au/people-to-people/australia-awards/australia-awards-scholarships",env:["applied","humanistic","development","structured"]},
+  {id:"erasmus",name:"Erasmus Mundus Joint Masters",provider:"European Union (Erasmus+)",country:"Europe",openTo:"worldwide",levels:["masters"],fields:"all",minGpaPct:null,englishMin:"advanced",ageMaxUg:null,ageMaxGrad:null,type:["fully","research"],funding:"Full tuition + ~€1,400/mo + travel/installation",deadline:"Varies by programme (Oct–Jan → Dec–Feb)",url:"https://www.eacea.ec.europa.eu/scholarships/erasmus-mundus-catalogue_en",env:["exploratory","collaborative","theoretical","multicultural"]},
+  {id:"cgrs",name:"Canada Graduate Research Scholarship – Doctoral",provider:"Govt of Canada (CIHR/NSERC/SSHRC)",country:"Canada",openTo:"worldwide",levels:["phd"],fields:"all",minGpaPct:80,englishMin:"advanced",ageMaxUg:null,ageMaxGrad:null,type:["research","government"],funding:"CAD $40,000/yr for up to 3 years",deadline:"Agency ~mid-Oct 2026 (institutional earlier)",url:"https://nserc-crsng.canada.ca/en/funding-opportunity/canada-graduate-research-scholarship-doctoral-program",env:["independent","theoretical","analytical","exploratory"],note:"International applicants must already be enrolled in an eligible Canadian PhD program."}
+];
+const sm_COUNTRIES=["Afghanistan","Albania","Algeria","Angola","Argentina","Armenia","Australia","Austria","Azerbaijan","Bahrain","Bangladesh","Belarus","Belgium","Benin","Bhutan","Bolivia","Bosnia and Herzegovina","Botswana","Brazil","Bulgaria","Burkina Faso","Burundi","Cambodia","Cameroon","Canada","Cape Verde","Central African Republic","Chad","Chile","China","Colombia","Comoros","Republic of the Congo","Democratic Republic of the Congo","Costa Rica","Côte d'Ivoire","Croatia","Cuba","Cyprus","Czech Republic","Denmark","Djibouti","Dominican Republic","Ecuador","Egypt","El Salvador","Equatorial Guinea","Eritrea","Estonia","Eswatini","Ethiopia","Fiji","Finland","France","Gabon","Gambia","Georgia","Germany","Ghana","Greece","Guatemala","Guinea","Guinea-Bissau","Guyana","Haiti","Honduras","Hungary","Iceland","India","Indonesia","Iran","Iraq","Ireland","Israel","Italy","Jamaica","Japan","Jordan","Kazakhstan","Kenya","Kuwait","Kyrgyzstan","Laos","Latvia","Lebanon","Lesotho","Liberia","Libya","Lithuania","Luxembourg","Madagascar","Malawi","Malaysia","Maldives","Mali","Malta","Mauritania","Mauritius","Mexico","Moldova","Mongolia","Montenegro","Morocco","Mozambique","Myanmar","Namibia","Nepal","Netherlands","New Zealand","Nicaragua","Niger","Nigeria","North Macedonia","Norway","Oman","Pakistan","Palestine","Panama","Papua New Guinea","Paraguay","Peru","Philippines","Poland","Portugal","Qatar","Romania","Rwanda","Samoa","Saudi Arabia","Senegal","Serbia","Sierra Leone","Singapore","Slovakia","Slovenia","Solomon Islands","Somalia","South Africa","South Korea","South Sudan","Spain","Sri Lanka","Sudan","Sweden","Switzerland","Syria","Tajikistan","Tanzania","Thailand","Timor-Leste","Togo","Tunisia","Turkey","Turkmenistan","Uganda","Ukraine","United Arab Emirates","United Kingdom","United States","Uruguay","Uzbekistan","Vanuatu","Venezuela","Vietnam","Yemen","Zambia","Zimbabwe"];
+const sm_QUESTIONS=[
+  {ax:"a1",q:"I learn best when I am…",a:["discussing and building ideas with a cohort","working through the material on my own"]},
+  {ax:"a1",q:"My ideal program would…",a:["be full of teamwork and peer projects","let me pursue my own line of work independently"]},
+  {ax:"a2",q:"I am more drawn to…",a:["solving concrete, real-world problems","exploring theories and abstract ideas"]},
+  {ax:"a2",q:"I would rather a thesis that…",a:["produces something usable in practice","advances understanding of a concept"]},
+  {ax:"a3",q:"I make decisions mainly through…",a:["data, logic and systems","people, impact and values"]},
+  {ax:"a3",q:"The work that excites me most is…",a:["technical and evidence-driven","improving people's lives and communities"]},
+  {ax:"a4",q:"I work best with…",a:["clear structure, deadlines and a set curriculum","open-ended freedom to explore"]},
+  {ax:"a4",q:"When I start a project I…",a:["plan the steps in advance","dive in and adapt as I go"]}
+];
+const sm_AXIS_DEF={a1:{left:"Collaborative",right:"Independent",lp:"collaborative",rp:"independent"},a2:{left:"Applied",right:"Theoretical",lp:"applied",rp:"theoretical"},a3:{left:"Analytical",right:"Humanistic",lp:"analytical",rp:"humanistic"},a4:{left:"Structured",right:"Exploratory",lp:"structured",rp:"exploratory"}};
+let sm_ans={};
+function sm_pct(val,scale){var v=parseFloat(val),sc=parseFloat(scale);if(isNaN(v))return null;if(sc===100)return v;return Math.max(0,Math.min(100,(v/sc)*100));}
+function sm_targetLevels(d){if(d==="highschool")return new Set(["undergraduate"]);if(d==="bachelor")return new Set(["masters"]);if(d==="master")return new Set(["masters","phd"]);if(d==="phd")return new Set(["phd"]);return new Set([]);}
+function sm_fit(p,s){
+  var parts=[],gaps=[],total=0,eligible=true,reason="";
+  function part(key,w,earned,ok,detail,gap){parts.push({key:key,ok:ok,detail:detail,w:w,earned:earned});total+=earned;if(gap&&!ok)gaps.push(gap);}
+  var natOk=true,natDetail="Open worldwide";
+  if(s.openTo==="developing"){natOk=sm_DEVELOPING.has(p.nationality);natDetail=natOk?"Eligible (developing-country program)":"Restricted to developing countries";}
+  else if(s.openTo==="partner"){natOk=true;natDetail="Open to most countries — confirm yours is on the official partner list";}
+  part("Nationality",15,natOk?15:0,natOk,natDetail,"This program is limited to developing countries — check the official eligible-country list.");
+  if(!natOk){eligible=false;reason="Not open to your nationality";}
+  var tl=sm_targetLevels(p.currentDegree);
+  var fitsL=s.levels.filter(function(l){return tl.has(l);});
+  var lvlOk=fitsL.length>0;
+  part("Degree level",20,lvlOk?20:0,lvlOk,lvlOk?("Offers "+fitsL.join(" / ")+" — your next step"):("Offers "+s.levels.join(" / ")+" — not your next level"),"This scholarship does not fund the level you would pursue next.");
+  if(!lvlOk){eligible=false;if(!reason)reason="Your study level is not offered";}
+  var fieldOk=true,fieldDetail="Open to all fields";
+  if(s.fields!=="all"){fieldOk=s.fields.indexOf(p.field)>=0;fieldDetail=fieldOk?"Your field is eligible":"Targets specific fields";}
+  part("Field of study",20,fieldOk?20:0,fieldOk,fieldDetail,"This scholarship targets specific fields; your chosen field may not qualify — verify on the official page.");
+  var gpaOk=true,gpaEarned=15,gpaDetail="No fixed GPA threshold — stay competitive";
+  if(s.minGpaPct){if(p.gpaPct>=s.minGpaPct){gpaOk=true;gpaEarned=15;gpaDetail="Meets the ~"+s.minGpaPct+"% requirement";}else if(p.gpaPct>=s.minGpaPct-5){gpaOk=true;gpaEarned=9;gpaDetail="Just under the ~"+s.minGpaPct+"% line — borderline";}else{gpaOk=false;gpaEarned=0;gpaDetail="Below the ~"+s.minGpaPct+"% requirement";}}
+  part("GPA",15,gpaEarned,gpaOk,gpaDetail,"Your average appears below the typical threshold — confirm the exact grade conversion and strengthen the rest of your application.");
+  var reqR=sm_ENG_RANK[s.englishMin],myR=sm_ENG_RANK[p.english];
+  var engOk=myR>=reqR,engEarned=engOk?10:(myR===reqR-1?5:0);
+  part("English",10,engEarned,engOk,engOk?"Meets the language level":"Below the typical language level","Raise your English (IELTS/TOEFL) to meet this scholarship's level before applying.");
+  var isUgOnly=tl.has("undergraduate")&&!tl.has("masters")&&!tl.has("phd");
+  var cap2=isUgOnly?s.ageMaxUg:s.ageMaxGrad;
+  var ageOk=true,ageDetail="No age limit";
+  if(cap2){ageOk=p.age<=cap2;ageDetail=ageOk?("Within the age limit ("+cap2+")"):("Likely over the age limit (~"+cap2+")");}
+  part("Age",10,ageOk?10:0,ageOk,ageDetail,"This scholarship has an age limit (~"+cap2+") — verify your eligibility for your intended intake.");
+  var typeEarned=5,typeDetail="No preference set";
+  if(p.schType&&p.schType!=="any"){var tm=s.type.indexOf(p.schType)>=0;typeEarned=tm?5:2;typeDetail=tm?"Matches the type you want":"A different type than your preference";}
+  part("Type preference",5,typeEarned,true,typeDetail,null);
+  var destEarned=5,destDetail="No preference set";
+  if(p.dest&&p.dest!=="any"){var dm=(s.country===p.dest);destEarned=dm?5:1;destDetail=dm?"Your preferred destination":("Located in "+s.country);}
+  part("Destination",5,destEarned,true,destDetail,null);
+  var score=Math.round(total);
+  if(!eligible)score=Math.min(score,35);
+  return{score:score,eligible:eligible,reason:reason,parts:parts,gaps:gaps};
+}
+function sm_cap(s){return s.charAt(0).toUpperCase()+s.slice(1);}
+function sm_mindset(answers){
+  var tally={a1:[0,0],a2:[0,0],a3:[0,0],a4:[0,0]};
+  sm_QUESTIONS.forEach(function(qq,i){if(answers[i]===0||answers[i]===1)tally[qq.ax][answers[i]]++;});
+  var poles={},pct={},tags=new Set();
+  ["a1","a2","a3","a4"].forEach(function(ax){
+    var l=tally[ax][0],r=tally[ax][1];
+    if(l>r){poles[ax]=sm_AXIS_DEF[ax].lp;pct[ax]=l===2?12:30;}
+    else if(r>l){poles[ax]=sm_AXIS_DEF[ax].rp;pct[ax]=r===2?88:70;}
+    else{poles[ax]="balanced";pct[ax]=50;}
+    if(poles[ax]!=="balanced")tags.add(poles[ax]);
+  });
+  var arch="The Generalist",desc="You balance several academic styles, which keeps your options broad.";
+  if(tags.has("theoretical")&&tags.has("independent")){arch="The Researcher";desc="You thrive in independent, idea-driven work — research-intensive programs and PhDs suit you.";}
+  else if(tags.has("humanistic")&&tags.has("collaborative")){arch="The Changemaker";desc="You're energised by people and impact — leadership and development scholarships fit you well.";}
+  else if(tags.has("applied")&&tags.has("structured")){arch="The Professional";desc="You like concrete, well-structured programs that build job-ready expertise.";}
+  else if(tags.has("exploratory")&&tags.has("collaborative")){arch="The Explorer";desc="You enjoy variety and new environments — multi-country and exchange programs fit you.";}
+  else if(tags.has("analytical")&&tags.has("structured")){arch="The Analyst";desc="You like rigorous, structured, evidence-driven study — technical and research programs suit you.";}
+  var type=["a1","a2","a3","a4"].map(function(ax){return poles[ax]==="balanced"?"Balanced":sm_cap(poles[ax]);}).join(" · ");
+  return{poles:poles,pct:pct,tags:tags,type:type,archetype:arch,desc:desc};
+}
+function sm_bold(t){return "<b>"+t+"</b>";}
+function sm_reco(p,mind){
+  var scored=sm_SCHOLARSHIPS.map(function(s){var o=0;s.env.forEach(function(t){if(mind.tags.has(t))o++;});return{s:s,o:o};}).filter(function(x){return x.o>0;}).sort(function(a,b){return b.o-a.o;});
+  var picks=scored.slice(0,3).map(function(x){return x.s.name;});
+  var lead="Your mindset reads as "+sm_bold(mind.archetype)+" ("+mind.type+").";
+  var body=picks.length?(" Students with a similar academic mindset often feel most at home with programs like "+sm_bold(picks.join(", "))+". "+mind.desc):(" "+mind.desc+" Explore broadly and let the eligibility matches below guide where you can actually apply.");
+  return{picks:picks,html:lead+body};
+}
+
+// ── MATCHES (calibrated) ──────────────────────────────────────────────────────
+function rMatches(){
+  const pg=document.getElementById('page-matches');
+  if(pg.querySelector('#sm-root')) return; // keep state when returning to the page
+  const sel=(typeof profile!=='undefined'&&profile&&profile.nat)?profile.nat:'';
+  const natOpts='<option value="">Select…</option>'+sm_COUNTRIES.map(function(c){return '<option'+(c===sel?' selected':'')+'>'+c+'</option>';}).join('');
+  const quiz=sm_QUESTIONS.map(function(qq,i){return '<div class="sm-q"><div class="sm-qt">'+(i+1)+'. '+qq.q+'</div><div class="sm-opts"><div class="sm-opt" data-q="'+i+'" data-v="0" onclick="sm_pick(this)">'+qq.a[0]+'</div><div class="sm-opt" data-q="'+i+'" data-v="1" onclick="sm_pick(this)">'+qq.a[1]+'</div></div></div>';}).join('');
+  pg.innerHTML=
+  topbar('Scholarship <em>Matches</em>','Calibrated to your profile — an honest Fit Score, not a success guarantee')+
+  '<div id="sm-root"><div id="sm-form">'+
+    '<div class="card" style="margin-bottom:16px"><div style="font-size:18px;font-weight:600;margin-bottom:4px">1 · Your match profile</div><div style="color:var(--text3);font-size:13px;margin-bottom:16px">The more precise this is, the more accurate your Fit Score.</div>'+
+    '<div class="sm-grid">'+
+      '<div><label class="sm-fl">Nationality</label><select class="sm-fi" id="sm-nat">'+natOpts+'</select></div>'+
+      '<div><label class="sm-fl">Age</label><input class="sm-fi" id="sm-age" type="number" min="14" max="70" placeholder="e.g. 24"></div>'+
+      '<div><label class="sm-fl">Current / highest degree</label><select class="sm-fi" id="sm-deg"><option value="">Select…</option><option value="highschool">High school</option><option value="bachelor">Bachelor\'s</option><option value="master">Master\'s</option><option value="phd">Doctorate (PhD)</option></select></div>'+
+      '<div><label class="sm-fl">Grade average</label><div class="sm-row2"><input class="sm-fi" id="sm-gpa" type="number" step="0.01" placeholder="e.g. 15"><select class="sm-fi" id="sm-scale"><option value="20">/ 20</option><option value="4">/ 4.0</option><option value="5">/ 5.0</option><option value="100">%</option></select></div></div>'+
+      '<div><label class="sm-fl">Preferred field</label><select class="sm-fi" id="sm-field"><option value="">Select…</option><option value="humanities">Humanities</option><option value="social">Social sciences</option><option value="business">Business &amp; economics</option><option value="law">Law</option><option value="natural">Natural sciences</option><option value="engineering">Engineering</option><option value="ict">Computer science / ICT</option><option value="medicine">Medicine &amp; health</option><option value="agriculture">Agriculture &amp; environment</option><option value="education">Education</option><option value="arts">Arts &amp; design</option></select></div>'+
+      '<div><label class="sm-fl">Preferred destination</label><select class="sm-fi" id="sm-dest"><option value="any">No preference</option><option>South Korea</option><option>United States</option><option>United Kingdom</option><option>Germany</option><option>Japan</option><option>Australia</option><option value="Europe">Europe (multi-country)</option><option>Canada</option></select></div>'+
+      '<div><label class="sm-fl">Type of scholarship</label><select class="sm-fi" id="sm-type"><option value="any">No preference</option><option value="fully">Fully funded</option><option value="government">Government-funded</option><option value="research">Research-focused</option><option value="development">Development / leadership</option></select></div>'+
+      '<div><label class="sm-fl">English level</label><select class="sm-fi" id="sm-eng"><option value="">Select…</option><option value="basic">Basic</option><option value="intermediate">Intermediate (B1–B2)</option><option value="advanced">Advanced (C1+ / IELTS 6.5+)</option><option value="native">Native / fluent</option></select></div>'+
+    '</div></div>'+
+    '<div class="card" style="margin-bottom:16px"><div style="font-size:18px;font-weight:600;margin-bottom:4px">2 · Academic mindset profiler</div><div style="color:var(--text3);font-size:13px;margin-bottom:8px">Eight quick choices — this translates an MBTI-style read into <i>academic</i> dimensions to suggest your ideal study environment. It does not affect your eligibility matches.</div>'+quiz+'</div>'+
+    '<div class="sm-center"><button class="btn btn-primary" onclick="sm_run()">See my matches →</button><div class="sm-err" id="sm-err"></div></div>'+
+  '</div>'+
+  '<div id="sm-results" class="sm-hidden">'+
+    '<div class="card" style="margin-bottom:16px"><div style="font-size:18px;font-weight:600;margin-bottom:4px">Your academic mindset</div><div style="color:var(--text3);font-size:13px;margin-bottom:10px" id="sm-mindsub"></div><div class="sm-mind-type" id="sm-mindtype"></div><p style="color:var(--text2);font-size:14px;margin-top:8px" id="sm-minddesc"></p><div id="sm-mindaxes" style="margin-top:14px"></div></div>'+
+    '<div class="card" style="margin-bottom:16px"><div style="font-size:18px;font-weight:600;margin-bottom:10px">Recommendation for you</div><div class="sm-reco"><span class="sm-rtag">Orientation only</span><div id="sm-recotext" style="font-size:14px;color:var(--text)"></div><div class="sm-disc">Guidance to help you reflect — it is not coercive and does <b>not</b> change or rank the eligibility matches below.</div></div></div>'+
+    '<div class="sm-note">Your matches are ranked by an honest <b>Fit Score</b> — how well your profile meets each scholarship\'s real eligibility criteria. It is not a probability of winning. Always confirm details on the official page.</div>'+
+    '<div id="sm-matches"></div>'+
+    '<div class="sm-center"><button class="btn btn-outline" onclick="sm_back()">← Edit my profile</button></div>'+
+  '</div></div>';
+}
+function sm_val(id){return document.getElementById(id).value;}
+function sm_pick(el){var qi=el.getAttribute('data-q');document.querySelectorAll('.sm-opt[data-q="'+qi+'"]').forEach(function(o){o.classList.remove('sel');});el.classList.add('sel');sm_ans[qi]=parseInt(el.getAttribute('data-v'),10);}
+function sm_run(){
+  var err=document.getElementById('sm-err');err.textContent='';
+  var p={name:(typeof profile!=='undefined'&&profile?profile.name:'')||'',nationality:sm_val('sm-nat'),age:parseInt(sm_val('sm-age'),10),currentDegree:sm_val('sm-deg'),gpaPct:sm_pct(sm_val('sm-gpa'),sm_val('sm-scale')),field:sm_val('sm-field'),dest:sm_val('sm-dest'),schType:sm_val('sm-type'),english:sm_val('sm-eng')};
+  if(!p.nationality||!p.currentDegree||!p.field||!p.english||isNaN(p.age)||p.gpaPct===null){err.textContent='Please complete nationality, age, degree, grade, field and English level.';return;}
+  if(Object.keys(sm_ans).length<8){err.textContent='Please answer all 8 mindset questions.';return;}
+  var answers=[];for(var i=0;i<8;i++)answers.push(sm_ans[i]);
+  var mind=sm_mindset(answers),reco=sm_reco(p,mind);
+  sm_renderResults(p,mind,reco);
+  document.getElementById('sm-form').classList.add('sm-hidden');
+  document.getElementById('sm-results').classList.remove('sm-hidden');
+  window.scrollTo(0,0);
+}
+function sm_back(){document.getElementById('sm-results').classList.add('sm-hidden');document.getElementById('sm-form').classList.remove('sm-hidden');window.scrollTo(0,0);}
+function sm_ringColor(sc){return sc>=80?'#5fd38a':sc>=60?'var(--accent)':sc>=40?'var(--accent2)':'#fc7a6e';}
+function sm_scoreLabel(sc,el){if(!el)return 'Not eligible';return sc>=80?'Strong fit':sc>=60?'Good fit':sc>=40?'Partial fit':'Weak fit';}
+function sm_renderResults(p,mind,reco){
+  document.getElementById('sm-mindsub').textContent=(p.name?p.name+', ':'')+'here is how you tend to learn and work.';
+  document.getElementById('sm-mindtype').textContent=mind.archetype+' — '+mind.type;
+  document.getElementById('sm-minddesc').textContent=mind.desc;
+  document.getElementById('sm-mindaxes').innerHTML=['a1','a2','a3','a4'].map(function(ax){var d=sm_AXIS_DEF[ax],pc=mind.pct[ax];return '<div class="sm-axis"><div class="sm-albl"><b>'+d.left+'</b><b>'+d.right+'</b></div><div class="sm-track"><div class="sm-dot" style="left:'+pc+'%"></div></div></div>';}).join('');
+  document.getElementById('sm-recotext').innerHTML=reco.html;
+  var results=sm_SCHOLARSHIPS.map(function(s){return{s:s,r:sm_fit(p,s)};}).sort(function(a,b){if(a.r.eligible!==b.r.eligible)return a.r.eligible?-1:1;return b.r.score-a.r.score;});
+  document.getElementById('sm-matches').innerHTML=results.map(function(x){
+    var s=x.s,r=x.r;
+    var eCls=!r.eligible?'sm-eb':(r.score>=60?'sm-eo':'sm-ew');
+    var eTxt=!r.eligible?('Not eligible — '+r.reason):(r.score>=60?'Eligible':'Eligible — with gaps to close');
+    var chips=r.parts.filter(function(pt){return ['Nationality','Degree level','Field of study','GPA','English','Age'].indexOf(pt.key)>=0;}).map(function(pt){return '<span class="sm-chip '+(pt.ok?'ok':'no')+'">'+(pt.ok?'✓':'✗')+' '+pt.key+'</span>';}).join('');
+    var gaps=r.gaps.length?'<div class="sm-gaps"><div class="sm-gt">How to close the gap</div><ul>'+r.gaps.map(function(g){return '<li>'+g+'</li>';}).join('')+'</ul></div>':'';
+    var note=s.note?'<div class="sm-meta">⚠ '+s.note+'</div>':'';
+    return '<div class="sm-match'+(r.eligible?'':' inelig')+'"><div class="sm-mh"><div><div class="sm-nm">'+s.name+'</div><div class="sm-pv">'+s.provider+' · '+s.country+'</div></div><div class="sm-ring" style="border:3px solid '+sm_ringColor(r.score)+';color:'+sm_ringColor(r.score)+'">'+r.score+'</div></div><div class="sm-ribbon '+eCls+'">'+sm_scoreLabel(r.score,r.eligible)+' · '+eTxt+'</div><div class="sm-chips">'+chips+'</div>'+gaps+'<div class="sm-meta">💰 '+s.funding+'<br>🗓 '+s.deadline+' · <a href="'+s.url+'" target="_blank" rel="noopener">Official page →</a></div>'+note+'</div>';
+  }).join('');
+}
 
 // ── PEERS ─────────────────────────────────────────────────────────────────────
 function rPeers(){
