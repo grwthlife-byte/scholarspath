@@ -216,6 +216,12 @@ textarea.fi{resize:vertical;min-height:80px}
 .sm-meta a{color:var(--accent);text-decoration:none}
 .sm-err{color:#fc7a6e;font-size:13px;margin-top:8px;min-height:16px}
 .sm-center{text-align:center;margin-top:6px}
+.sm-why{margin-top:10px;background:rgba(95,211,138,.06);border:1px solid rgba(95,211,138,.25);border-radius:10px;padding:11px 13px}
+.sm-wt{font-size:12px;font-weight:700;color:#5fd38a;letter-spacing:.4px;text-transform:uppercase;margin-bottom:6px}
+.sm-wlead{font-size:13.5px;color:var(--text);margin:0 0 8px}
+.sm-wlist{margin:0;padding-left:16px}
+.sm-wlist li{font-size:12.5px;color:var(--text2);margin:3px 0}
+.sm-wlist li b{color:var(--text)}
 </style>
 </head>
 <body>
@@ -927,6 +933,16 @@ async function sm_hydrate(){
 }
 function sm_ringColor(sc){return sc>=80?'#5fd38a':sc>=60?'var(--accent)':sc>=40?'var(--accent2)':'#fc7a6e';}
 function sm_scoreLabel(sc,el){if(!el)return 'Not eligible';return sc>=80?'Strong fit':sc>=60?'Good fit':sc>=40?'Partial fit':'Weak fit';}
+function sm_join(a){if(a.length===1)return a[0];if(a.length===2)return a[0]+' and '+a[1];return a.slice(0,-1).join(', ')+', and '+a[a.length-1];}
+function sm_whyHtml(r){
+  var core=['Nationality','Degree level','Field of study','GPA','English','Age'];
+  var phr={'Nationality':'you are eligible by nationality','Degree level':'it funds your next study level','Field of study':'your field qualifies','GPA':'your grades meet the requirement','English':'your English meets the level','Age':'you are within the age limit'};
+  var strong=r.parts.filter(function(p){return core.indexOf(p.key)>=0&&p.ok;}).map(function(p){return phr[p.key];});
+  var lead=(r.score>=80?'Excellent match — ':r.score>=60?'Good match — ':'Partial match — ');
+  var sentence=strong.length?(lead+sm_join(strong)+'.'):(lead+'see the details below.');
+  var rows=r.parts.filter(function(p){return core.indexOf(p.key)>=0;}).map(function(p){return '<li><b>'+p.key+':</b> '+p.detail+'</li>';}).join('');
+  return '<div class="sm-why"><div class="sm-wt">Why this fits you</div><p class="sm-wlead">'+sentence+'</p><ul class="sm-wlist">'+rows+'</ul></div>';
+}
 function sm_renderResults(p,mind,reco){
   document.getElementById('sm-mindsub').textContent=(p.name?p.name+', ':'')+'here is how you tend to learn and work.';
   document.getElementById('sm-mindtype').textContent=mind.archetype+' — '+mind.type;
@@ -941,7 +957,7 @@ function sm_renderResults(p,mind,reco){
     var chips=r.parts.filter(function(pt){return ['Nationality','Degree level','Field of study','GPA','English','Age'].indexOf(pt.key)>=0;}).map(function(pt){return '<span class="sm-chip '+(pt.ok?'ok':'no')+'">'+(pt.ok?'✓':'✗')+' '+pt.key+'</span>';}).join('');
     var gaps=r.gaps.length?'<div class="sm-gaps"><div class="sm-gt">How to close the gap</div><ul>'+r.gaps.map(function(g){return '<li>'+g+'</li>';}).join('')+'</ul></div>':'';
     var note=s.note?'<div class="sm-meta">⚠ '+s.note+'</div>':'';
-    return '<div class="sm-match'+(r.eligible?'':' inelig')+'"><div class="sm-mh"><div><div class="sm-nm">'+s.name+'</div><div class="sm-pv">'+s.provider+' · '+s.country+'</div></div><div class="sm-ring" style="border:3px solid '+sm_ringColor(r.score)+';color:'+sm_ringColor(r.score)+'">'+r.score+'</div></div><div class="sm-ribbon '+eCls+'">'+sm_scoreLabel(r.score,r.eligible)+' · '+eTxt+'</div><div class="sm-chips">'+chips+'</div>'+gaps+'<div class="sm-meta">💰 '+s.funding+'<br>🗓 '+s.deadline+' · <a href="'+s.url+'" target="_blank" rel="noopener">Official page →</a></div>'+note+'</div>';
+    return '<div class="sm-match'+(r.eligible?'':' inelig')+'"><div class="sm-mh"><div><div class="sm-nm">'+s.name+'</div><div class="sm-pv">'+s.provider+' · '+s.country+'</div></div><div class="sm-ring" style="border:3px solid '+sm_ringColor(r.score)+';color:'+sm_ringColor(r.score)+'">'+r.score+'</div></div><div class="sm-ribbon '+eCls+'">'+sm_scoreLabel(r.score,r.eligible)+' · '+eTxt+'</div><div class="sm-chips">'+chips+'</div>'+(r.eligible?sm_whyHtml(r):'')+gaps+'<div class="sm-meta">💰 '+s.funding+'<br>🗓 '+s.deadline+' · <a href="'+s.url+'" target="_blank" rel="noopener">Official page →</a></div>'+note+'</div>';
   }).join('');
 }
 
