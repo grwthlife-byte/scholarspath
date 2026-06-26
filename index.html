@@ -875,12 +875,14 @@ function rMatches(){
     '<div id="sm-matches"></div>'+
     '<div class="sm-center"><button class="btn btn-outline" onclick="sm_back()">← Edit my profile</button></div>'+
   '</div></div>';
+  sm_hydrate();
 }
 function sm_val(id){return document.getElementById(id).value;}
 function sm_pick(el){var qi=el.getAttribute('data-q');document.querySelectorAll('.sm-opt[data-q="'+qi+'"]').forEach(function(o){o.classList.remove('sel');});el.classList.add('sel');sm_ans[qi]=parseInt(el.getAttribute('data-v'),10);}
-function sm_run(){
+function sm_run(skipSave){
   var err=document.getElementById('sm-err');err.textContent='';
-  var p={name:(typeof profile!=='undefined'&&profile?profile.name:'')||'',nationality:sm_val('sm-nat'),age:parseInt(sm_val('sm-age'),10),currentDegree:sm_val('sm-deg'),gpaPct:sm_pct(sm_val('sm-gpa'),sm_val('sm-scale')),field:sm_val('sm-field'),dest:sm_val('sm-dest'),schType:sm_val('sm-type'),english:sm_val('sm-eng')};
+  var gpaVal=sm_val('sm-gpa'),gpaScale=sm_val('sm-scale');
+  var p={name:(typeof profile!=='undefined'&&profile?profile.name:'')||'',nationality:sm_val('sm-nat'),age:parseInt(sm_val('sm-age'),10),currentDegree:sm_val('sm-deg'),gpaPct:sm_pct(gpaVal,gpaScale),field:sm_val('sm-field'),dest:sm_val('sm-dest'),schType:sm_val('sm-type'),english:sm_val('sm-eng')};
   if(!p.nationality||!p.currentDegree||!p.field||!p.english||isNaN(p.age)||p.gpaPct===null){err.textContent='Please complete nationality, age, degree, grade, field and English level.';return;}
   if(Object.keys(sm_ans).length<8){err.textContent='Please answer all 8 mindset questions.';return;}
   var answers=[];for(var i=0;i<8;i++)answers.push(sm_ans[i]);
@@ -889,8 +891,40 @@ function sm_run(){
   document.getElementById('sm-form').classList.add('sm-hidden');
   document.getElementById('sm-results').classList.remove('sm-hidden');
   window.scrollTo(0,0);
+  if(!skipSave){ sm_save({nationality:p.nationality,age:p.age,currentDegree:p.currentDegree,gpaValue:gpaVal,gpaScale:gpaScale,field:p.field,dest:p.dest,schType:p.schType,english:p.english,answers:answers}); }
 }
 function sm_back(){document.getElementById('sm-results').classList.add('sm-hidden');document.getElementById('sm-form').classList.remove('sm-hidden');window.scrollTo(0,0);}
+function sm_setVal(id,v){var el=document.getElementById(id);if(el&&v!==undefined&&v!==null)el.value=v;}
+async function sm_save(obj){
+  try{
+    if(typeof sb==='undefined'||!sb) return;
+    var u=await sb.auth.getUser(); var user=(u&&u.data)?u.data.user:null; if(!user) return;
+    await sb.from('profiles').upsert({id:user.id, match_profile:obj});
+  }catch(e){ console.warn('match profile save failed', e); }
+}
+async function sm_load(){
+  try{
+    if(typeof sb==='undefined'||!sb) return null;
+    var u=await sb.auth.getUser(); var user=(u&&u.data)?u.data.user:null; if(!user) return null;
+    var res=await sb.from('profiles').select('match_profile').eq('id',user.id).maybeSingle();
+    return (res&&res.data&&res.data.match_profile)?res.data.match_profile:null;
+  }catch(e){ return null; }
+}
+async function sm_hydrate(){
+  var s=await sm_load(); if(!s) return;
+  sm_setVal('sm-nat',s.nationality); sm_setVal('sm-age',s.age); sm_setVal('sm-deg',s.currentDegree);
+  sm_setVal('sm-gpa',s.gpaValue); sm_setVal('sm-scale',s.gpaScale); sm_setVal('sm-field',s.field);
+  sm_setVal('sm-dest',s.dest); sm_setVal('sm-type',s.schType); sm_setVal('sm-eng',s.english);
+  if(Array.isArray(s.answers)){
+    sm_ans={};
+    s.answers.forEach(function(v,i){
+      sm_ans[i]=v;
+      document.querySelectorAll('.sm-opt[data-q="'+i+'"]').forEach(function(o){o.classList.remove('sel');});
+      var el=document.querySelector('.sm-opt[data-q="'+i+'"][data-v="'+v+'"]'); if(el) el.classList.add('sel');
+    });
+  }
+  if(s.nationality&&s.currentDegree&&s.field&&s.english&&Array.isArray(s.answers)&&s.answers.length===8){ sm_run(true); }
+}
 function sm_ringColor(sc){return sc>=80?'#5fd38a':sc>=60?'var(--accent)':sc>=40?'var(--accent2)':'#fc7a6e';}
 function sm_scoreLabel(sc,el){if(!el)return 'Not eligible';return sc>=80?'Strong fit':sc>=60?'Good fit':sc>=40?'Partial fit':'Weak fit';}
 function sm_renderResults(p,mind,reco){
