@@ -758,12 +758,58 @@ let liveScholarships=[];
 let liveScholarshipsLoaded=false;
 let liveScholarshipsError='';
 let savedScholarshipIds=new Set();
+let spCountryRulesByScholarship={};
+let spCountryGroupMembers={};
+let spCountryGroupLabels={};
 
 function spEsc(v){
   return String(v===undefined||v===null?'':v).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c];});
 }
 function spArr(v){return Array.isArray(v)?v:(v?[v]:[]);}
 function spNorm(v){return String(v||'').trim().toLowerCase();}
+function spCountryKey(v){
+  var n=String(v||'').trim().toLowerCase();
+  try{n=n.normalize('NFD').replace(/[\u0300-\u036f]/g,'');}catch(e){}
+  n=n.replace(/&/g,'and').replace(/[^a-z0-9]+/g,' ').trim().replace(/\s+/g,' ');
+  var alias={
+    'cote d ivoire':'ivory coast','ivory coast':'ivory coast',
+    'congo drc':'democratic republic of the congo','drc':'democratic republic of the congo','democratic republic of congo':'democratic republic of the congo','democratic republic of the congo':'democratic republic of the congo',
+    'congo brazzaville':'republic of the congo','republic of congo':'republic of the congo','congo':'republic of the congo',
+    'cabo verde':'cape verde','cape verde':'cape verde','eswatini':'eswatini','swaziland':'eswatini',
+    'south korea':'south korea','republic of korea':'south korea','korea republic of':'south korea','korea south':'south korea',
+    'north korea':'north korea','democratic peoples republic of korea':'north korea',
+    'united states':'united states','united states of america':'united states','usa':'united states','us':'united states',
+    'united kingdom':'united kingdom','uk':'united kingdom','great britain':'united kingdom','england':'united kingdom',
+    'russia':'russia','russian federation':'russia','sao tome and principe':'sao tome and principe',
+    'palestine':'palestine','state of palestine':'palestine','vatican city':'vatican city','holy see':'vatican city'
+  };
+  return alias[n]||n;
+}
+function spCountryListHas(list,country){
+  var ck=spCountryKey(country);
+  return spArr(list).some(function(x){return spCountryKey(x)===ck;});
+}
+function spGroupContainsCountry(groupKey,country){
+  var set=spCountryGroupMembers[groupKey];
+  return !!(set&&set.has(spCountryKey(country)));
+}
+function spGroupLabel(groupKey){
+  return spCountryGroupLabels[groupKey]||String(groupKey||'country group').replace(/_/g,' ').toLowerCase();
+}
+function spRuleMatchesCountry(rule,country){
+  if(!rule) return false;
+  if(rule.rule_kind==='all_countries') return true;
+  if(rule.rule_kind==='country') return spCountryKey(rule.country_name)===spCountryKey(country);
+  if(rule.rule_kind==='group') return spGroupContainsCountry(rule.group_key,country);
+  return false;
+}
+function spRuleName(rule){
+  if(!rule) return 'rule';
+  if(rule.rule_kind==='all_countries') return 'all countries';
+  if(rule.rule_kind==='country') return rule.country_name||'listed country';
+  if(rule.rule_kind==='group') return spGroupLabel(rule.group_key);
+  return 'eligibility rule';
+}
 function spHasAll(arr){return spArr(arr).some(function(x){var n=spNorm(x);return n==='all countries'||n==='worldwide'||n==='global'||n==='all';});}
 function spFormatDate(v){
   if(!v) return 'Deadline varies — verify official page';
@@ -826,23 +872,52 @@ function spFundingTypes(v){
   if(n.includes('development')||n.includes('leadership')) out.push('development');
   return out.length?out:['fully'];
 }
-function spOpenTo(row){
+function spOpenTo(row,rules){
+  var eligibleRules=spArr(rules).filter(function(r){return r.rule_type==='eligible';});
+  if(eligibleRules.length){
+    if(eligibleRules.some(function(r){return r.rule_kind==='all_countries';})) return 'worldwide';
+    if(eligibleRules.some(function(r){return r.rule_kind==='group';})) return 'country_rules';
+    return 'specific';
+  }
   if(spHasAll(row.eligible_nationalities)) return 'worldwide';
   return 'specific';
+}
+function spCheckNationalityEligibility(s,nationality){
+  var rules=spArr(s.countryRules);
+  if(!rules.length) return null;
+  var excluded=rules.filter(function(r){return r.rule_type==='excluded';});
+  var eligible=rules.filter(function(r){return r.rule_type==='eligible';});
+  var blocked=excluded.find(function(r){return spRuleMatchesCountry(r,nationality);});
+  if(blocked){
+    return {ok:false,detail:'Excluded by rule: '+spRuleName(blocked),gap:'This scholarship excludes your nationality or country group. Verify the official eligibility list.'};
+  }
+  if(!eligible.length){
+    return {ok:true,detail:'Open except listed exclusions',gap:null};
+  }
+  var matched=eligible.find(function(r){return spRuleMatchesCountry(r,nationality);});
+  if(matched){
+    return {ok:true,detail:'Eligible through '+spRuleName(matched),gap:null};
+  }
+  var names=eligible.slice(0,3).map(spRuleName).join(', ');
+  if(eligible.length>3) names+='…';
+  return {ok:false,detail:'Restricted to '+(names||'listed countries/groups'),gap:'Your nationality does not match the scholarship country rule stored in Supabase. Check the official eligible-country list.'};
 }
 function spDbScholarshipToMatch(row){
   var funding=[row.funding_type,row.funding_details].filter(Boolean).join(' — ');
   var eligible=spArr(row.eligible_nationalities);
   var excluded=spArr(row.excluded_nationalities);
+  var dbId=Number(row.id);
+  var rules=spCountryRulesByScholarship[dbId]||[];
   return {
     id:'db-'+row.id,
-    dbId:row.id,
+    dbId:dbId,
     name:row.name||'Untitled scholarship',
     provider:row.provider||'Scholarship provider',
     country:row.host_country||'Global',
-    openTo:spOpenTo(row),
+    openTo:spOpenTo(row,rules),
     eligibleCountries:eligible,
     excludedCountries:excluded,
+    countryRules:rules,
     levels:spMapDegrees(row.degree_levels),
     fields:spMapFields(row.fields),
     minGpaPct:spGpaToPct(row.min_gpa),
@@ -859,6 +934,32 @@ function spDbScholarshipToMatch(row){
     lastVerified:row.last_verified||null
   };
 }
+async function spFetchCountryRules(){
+  spCountryRulesByScholarship={};
+  spCountryGroupMembers={};
+  spCountryGroupLabels={};
+  if(!sb) return;
+  var groups=await sb.from('country_groups').select('group_key,group_name').eq('is_active',true);
+  if(!groups.error){
+    (groups.data||[]).forEach(function(g){spCountryGroupLabels[g.group_key]=g.group_name||g.group_key;});
+  }
+  var members=await sb.from('country_group_members').select('group_key,country_name');
+  if(!members.error){
+    (members.data||[]).forEach(function(m){
+      if(!spCountryGroupMembers[m.group_key]) spCountryGroupMembers[m.group_key]=new Set();
+      spCountryGroupMembers[m.group_key].add(spCountryKey(m.country_name));
+    });
+  }
+  var rules=await sb.from('scholarship_country_rules').select('scholarship_id,rule_type,rule_kind,country_name,group_key,notes');
+  if(!rules.error){
+    (rules.data||[]).forEach(function(r){
+      var sid=Number(r.scholarship_id);
+      if(!spCountryRulesByScholarship[sid]) spCountryRulesByScholarship[sid]=[];
+      spCountryRulesByScholarship[sid].push(r);
+    });
+  }
+}
+
 async function spFetchScholarships(force){
   if(liveScholarshipsLoaded&&!force) return liveScholarships;
   liveScholarshipsError='';
@@ -866,6 +967,7 @@ async function spFetchScholarships(force){
     if(!sb) throw new Error('Supabase is not ready yet.');
     var res=await sb.from('scholarships').select('*').eq('is_active',true).order('deadline_date',{ascending:true});
     if(res.error) throw res.error;
+    await spFetchCountryRules();
     liveScholarships=(res.data||[]).map(spDbScholarshipToMatch);
     liveScholarshipsLoaded=true;
     await spFetchSavedScholarships();
@@ -948,17 +1050,23 @@ function sm_targetLevels(d){if(d==="highschool")return new Set(["undergraduate"]
 function sm_fit(p,s){
   var parts=[],gaps=[],total=0,eligible=true,reason="";
   function part(key,w,earned,ok,detail,gap){parts.push({key:key,ok:ok,detail:detail,w:w,earned:earned});total+=earned;if(gap&&!ok)gaps.push(gap);}
-  var natOk=true,natDetail="Open worldwide";
-  if(s.excludedCountries&&s.excludedCountries.map(spNorm).indexOf(spNorm(p.nationality))>=0){natOk=false;natDetail="Your nationality appears excluded";}
+  var natOk=true,natDetail="Open worldwide",natGap="This program is limited to specific countries or country groups — check the official eligible-country list.";
+  var ruleCheck=spCheckNationalityEligibility(s,p.nationality);
+  if(ruleCheck){
+    natOk=ruleCheck.ok;
+    natDetail=ruleCheck.detail;
+    if(ruleCheck.gap) natGap=ruleCheck.gap;
+  }
+  else if(s.excludedCountries&&spCountryListHas(s.excludedCountries,p.nationality)){natOk=false;natDetail="Your nationality appears excluded";}
   else if(s.openTo==="specific"){
-    var allowed=(s.eligibleCountries||[]).map(spNorm);
-    natOk=allowed.indexOf(spNorm(p.nationality))>=0;
+    natOk=spCountryListHas(s.eligibleCountries||[],p.nationality);
     natDetail=natOk?"Your nationality is listed as eligible":"Restricted to listed eligible countries";
   }
-  else if(s.openTo==="developing"){natOk=sm_DEVELOPING.has(p.nationality);natDetail=natOk?"Eligible (developing-country program)":"Restricted to developing countries";}
-  else if(s.openTo==="commonwealth"){natOk=sm_COMMONWEALTH.has(p.nationality);natDetail=natOk?"Eligible (Commonwealth country)":"Restricted to Commonwealth countries";}
+  else if(s.openTo==="developing"){natOk=sm_DEVELOPING.has(p.nationality)||spGroupContainsCountry('DEVELOPING_COUNTRIES',p.nationality);natDetail=natOk?"Eligible (developing-country program)":"Restricted to developing countries";}
+  else if(s.openTo==="commonwealth"){natOk=sm_COMMONWEALTH.has(p.nationality)||spGroupContainsCountry('COMMONWEALTH_COUNTRIES',p.nationality);natDetail=natOk?"Eligible (Commonwealth country)":"Restricted to Commonwealth countries";}
   else if(s.openTo==="partner"){natOk=true;natDetail="Open to most countries — confirm yours is on the official partner list";}
-  part("Nationality",15,natOk?15:0,natOk,natDetail,"This program is limited to specific countries — check the official eligible-country list.");
+  else if(s.openTo==="country_rules"){natOk=false;natDetail="Country-group rule exists, but no matching group members are loaded yet";}
+  part("Nationality",15,natOk?15:0,natOk,natDetail,natGap);
   if(!natOk){eligible=false;reason="Not open to your nationality";}
   var tl=sm_targetLevels(p.currentDegree);
   var fitsL=s.levels.filter(function(l){return tl.has(l);});
@@ -1124,7 +1232,8 @@ function sm_renderResults(p,mind,reco){
   var source=spScholarshipPool();
   if(!source.length){document.getElementById('sm-matches').innerHTML='<div class="card">No active scholarships found yet. Add scholarships in Supabase Table Editor first.</div>';return;}
   var results=source.map(function(s){return{s:s,r:sm_fit(p,s)};}).sort(function(a,b){if(a.r.eligible!==b.r.eligible)return a.r.eligible?-1:1;return b.r.score-a.r.score;});
-  var sourceNote=liveScholarships.length?'<div class="sm-note">Showing '+liveScholarships.length+' active scholarship(s) loaded from your Supabase database.</div>':'<div class="sm-note">Supabase scholarships could not be loaded, so the app is showing internal fallback examples. Error: '+spEsc(liveScholarshipsError||'No active database records')+'</div>';
+  var ruleCount=Object.keys(spCountryRulesByScholarship).reduce(function(n,k){return n+(spCountryRulesByScholarship[k]||[]).length;},0);
+  var sourceNote=liveScholarships.length?'<div class="sm-note">Showing '+liveScholarships.length+' active scholarship(s) loaded from your Supabase database'+(ruleCount?' with '+ruleCount+' country-rule(s).':'')+'</div>':'<div class="sm-note">Supabase scholarships could not be loaded, so the app is showing internal fallback examples. Error: '+spEsc(liveScholarshipsError||'No active database records')+'</div>';
   document.getElementById('sm-matches').innerHTML=sourceNote+results.map(function(x){
     var s=x.s,r=x.r;
     var eCls=!r.eligible?'sm-eb':(r.score>=60?'sm-eo':'sm-ew');
