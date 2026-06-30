@@ -243,7 +243,7 @@ textarea.fi{resize:vertical;min-height:80px}
     <h1 class="hero-title" data-i18n="hero_title">Your <em>Global</em><br>Scholarship<br>Journey</h1>
     <p class="hero-sub" data-i18n="hero_sub">AI-powered matching, peer community, career planning and mental health support — all in one platform for international students.</p>
     <div class="pills">
-      <span class="pill" data-i18n="pill_1">🎯 95%+ Match Accuracy</span><span class="pill" data-i18n="pill_2">🤝 Peer Community</span>
+      <span class="pill" data-i18n="pill_1">🎯 Personalized Fit Scores</span><span class="pill" data-i18n="pill_2">🤝 Peer Community</span>
       <span class="pill" data-i18n="pill_3">📄 Auto Pre-Application</span><span class="pill" data-i18n="pill_4">📰 Curated News</span>
       <span class="pill" data-i18n="pill_5">💙 Mental Health Support</span><span class="pill" data-i18n="pill_6">💡 Expert Tips</span>
       <span class="pill" data-i18n="pill_7">🎙 Interview Simulator</span><span class="pill" data-i18n="pill_8">🗺 10-Year Career Plan</span>
@@ -252,7 +252,7 @@ textarea.fi{resize:vertical;min-height:80px}
       <button class="btn btn-primary" style="font-size:16px;padding:14px 32px" data-i18n="btn_begin" onclick="goAuth('signup')">Begin Your Journey →</button>
       <button class="btn btn-outline" style="font-size:16px;padding:14px 32px" data-i18n="btn_demo" onclick="alert('Demo coming soon!')">Watch Demo</button>
     </div>
-    <p class="hero-note" data-i18n="hero_note">Trusted by 12,000+ students from 80+ countries • Free to use</p>
+    <p class="hero-note" data-i18n="hero_note">Built for international students worldwide • Free to start</p>
   </div>
 </div>
 
@@ -326,7 +326,7 @@ textarea.fi{resize:vertical;min-height:80px}
           <div class="fg"><label class="fl">Target Start Year</label><select class="fi" id="f-yr"><option value="">Select</option><option>2025</option><option>2026</option><option>2027</option></select></div>
           <div class="fg"><label class="fl">Budget</label><select class="fi" id="f-bud"><option value="">Select</option><option>$0 (Fully sponsored only)</option><option>Up to $500</option><option>Up to $2,000</option><option>Flexible</option></select></div>
         </div>
-        <div class="alert alert-i"><span>✦</span><span>Our AI will match you with scholarships where you have a 95%+ success probability!</span></div>
+        <div class="alert alert-i"><span>✦</span><span>ScholarsPath calculates an honest Fit Score based on eligibility, profile fit, and gaps to close. It is guidance, not a guarantee.</span></div>
       </div>
       <div style="display:flex;justify-content:space-between;margin-top:10px">
         <button class="btn btn-outline" id="ob-back" onclick="obBack()" style="visibility:hidden">← Back</button>
@@ -377,10 +377,10 @@ const I18N={
     nav_login:"Log In", nav_signup:"Sign Up",
     hero_title:"Your <em>Global</em><br>Scholarship<br>Journey",
     hero_sub:"AI-powered matching, peer community, career planning and mental health support — all in one platform for international students.",
-    pill_1:"🎯 95%+ Match Accuracy", pill_2:"🤝 Peer Community", pill_3:"📄 Auto Pre-Application", pill_4:"📰 Curated News",
+    pill_1:"🎯 Personalized Fit Scores", pill_2:"🤝 Peer Community", pill_3:"📄 Auto Pre-Application", pill_4:"📰 Curated News",
     pill_5:"💙 Mental Health Support", pill_6:"💡 Expert Tips", pill_7:"🎙 Interview Simulator", pill_8:"🗺 10-Year Career Plan",
     btn_begin:"Begin Your Journey →", btn_demo:"Watch Demo",
-    hero_note:"Trusted by 12,000+ students from 80+ countries • Free to use",
+    hero_note:"Built for international students worldwide • Free to start",
     tab_signup:"Sign Up", tab_login:"Log In",
     auth_signup_title:"Create Your <span>Account</span>", auth_login_title:"Welcome <span>Back</span>",
     auth_signup_sub:"Sign up to start your scholarship journey", auth_login_sub:"Log in to continue your journey",
@@ -395,10 +395,10 @@ const I18N={
     nav_login:"Se Connecter", nav_signup:"S'inscrire",
     hero_title:"Votre <em>Parcours</em><br>Mondial<br>de Bourses",
     hero_sub:"Mise en correspondance par IA, communauté d'étudiants, planification de carrière et soutien psychologique — le tout sur une seule plateforme pour les étudiants internationaux.",
-    pill_1:"🎯 Correspondance à 95%+", pill_2:"🤝 Communauté d'Étudiants", pill_3:"📄 Pré-Candidature Auto", pill_4:"📰 Actualités Ciblées",
+    pill_1:"🎯 Scores d’Adéquation Personnalisés", pill_2:"🤝 Communauté d'Étudiants", pill_3:"📄 Pré-Candidature Auto", pill_4:"📰 Actualités Ciblées",
     pill_5:"💙 Soutien Psychologique", pill_6:"💡 Conseils d'Experts", pill_7:"🎙 Simulateur d'Entretien", pill_8:"🗺 Plan de Carrière sur 10 Ans",
     btn_begin:"Commencez Votre Parcours →", btn_demo:"Voir la Démo",
-    hero_note:"Approuvé par 12 000+ étudiants de 80+ pays • Gratuit",
+    hero_note:"Conçu pour les étudiants internationaux du monde entier • Gratuit pour commencer",
     tab_signup:"S'inscrire", tab_login:"Se Connecter",
     auth_signup_title:"Créez Votre <span>Compte</span>", auth_login_title:"Content de Vous <span>Revoir</span>",
     auth_signup_sub:"Inscrivez-vous pour commencer votre parcours", auth_login_sub:"Connectez-vous pour continuer votre parcours",
@@ -476,7 +476,7 @@ async function doLogout(){
 
 async function afterLogin(){
   const p=await loadProfile();
-  if(p){ showScreen('app'); showPage('dashboard'); }
+  if(p){ await spFetchScholarships(); showScreen('app'); showPage('dashboard'); }
   else { showScreen('onboard'); }
 }
 
@@ -527,7 +527,7 @@ async function initSupabase(){
   const {data:{session}}=await sb.auth.getSession();
   if(session){
     const p=await loadProfile();
-    if(p){ showScreen('app'); showPage('dashboard'); }
+    if(p){ await spFetchScholarships(); showScreen('app'); showPage('dashboard'); }
     else { showScreen('onboard'); }
   }
 }
@@ -680,21 +680,24 @@ function topbar(titleHtml,sub){
 function rDash(){
   const pg=document.getElementById('page-dashboard');
   const n=profile.name||'Scholar';
+  if(!liveScholarshipsLoaded&&sb){spFetchScholarships().then(function(){if(document.getElementById('page-dashboard').classList.contains('active'))rDash();});}
+  const pool=liveScholarships.length?liveScholarships:[];
+  const top=pool.slice(0,3);
   pg.innerHTML=`
-  ${topbar('Welcome back, <em>'+n.split(' ')[0]+'</em>','Your scholarship journey at a glance')}
+  ${topbar('Welcome back, <em>'+spEsc(n.split(' ')[0])+'</em>','Your scholarship journey at a glance')}
   <div class="grid4" style="margin-bottom:24px">
-    <div class="stat-card sc-teal"><div style="font-size:22px;margin-bottom:6px">🎯</div><div class="stat-num" style="color:var(--accent)">8</div><div class="stat-lbl">Matched Scholarships</div></div>
-    <div class="stat-card sc-orange"><div style="font-size:22px;margin-bottom:6px">📈</div><div class="stat-num" style="color:var(--accent2)">96%</div><div class="stat-lbl">Avg. Success Rate</div></div>
+    <div class="stat-card sc-teal"><div style="font-size:22px;margin-bottom:6px">🎯</div><div class="stat-num" style="color:var(--accent)">${liveScholarshipsLoaded?pool.length:'—'}</div><div class="stat-lbl">Active Scholarships</div></div>
+    <div class="stat-card sc-orange"><div style="font-size:22px;margin-bottom:6px">📈</div><div class="stat-num" style="color:var(--accent2)">Fit</div><div class="stat-lbl">Honest Scoring</div></div>
     <div class="stat-card sc-purple"><div style="font-size:22px;margin-bottom:6px">🤝</div><div class="stat-num" style="color:var(--accent3)">6</div><div class="stat-lbl">Peer Connections</div></div>
-    <div class="stat-card sc-red"><div style="font-size:22px;margin-bottom:6px">📄</div><div class="stat-num" style="color:#fc814a">3</div><div class="stat-lbl">Apps In Progress</div></div>
+    <div class="stat-card sc-red"><div style="font-size:22px;margin-bottom:6px">💾</div><div class="stat-num" style="color:#fc814a">${savedScholarshipIds.size}</div><div class="stat-lbl">Saved Scholarships</div></div>
   </div>
   <div class="grid2" style="margin-bottom:20px">
     <div class="card">
-      <div style="font-size:18px;font-weight:500;margin-bottom:14px">🎯 Top Matches</div>
-      ${SCH.slice(0,3).map(s=>`<div class="match-card" onclick="showPage('matches')">
-        <div class="score-box ${s.score>=95?'score-hi':'score-md'}">${s.score}<br><span style="font-size:10px">%</span></div>
-        <div style="flex:1"><div style="font-weight:500;font-size:14px;margin-bottom:3px">${s.name}</div>
-        <div style="font-size:12px;color:var(--text3);display:flex;gap:8px;flex-wrap:wrap"><span>${s.country}</span><span>⏰ ${s.dl}</span><span style="color:var(--accent)">${s.amt.split('+')[0]}</span></div></div></div>`).join('')}
+      <div style="font-size:18px;font-weight:500;margin-bottom:14px">🎯 Scholarships from Database</div>
+      ${!liveScholarshipsLoaded?'<p style="color:var(--text3);font-size:13px">Loading Supabase scholarships...</p>':top.length?top.map(s=>`<div class="match-card" onclick="showPage('matches')">
+        <div class="score-box score-hi">DB<br><span style="font-size:10px">LIVE</span></div>
+        <div style="flex:1"><div style="font-weight:500;font-size:14px;margin-bottom:3px">${spEsc(s.name)}</div>
+        <div style="font-size:12px;color:var(--text3);display:flex;gap:8px;flex-wrap:wrap"><span>${spEsc(s.country)}</span><span>⏰ ${spEsc(s.deadline)}</span><span style="color:var(--accent)">${spEsc(s.funding.split('—')[0])}</span></div></div></div>`).join(''):'<p style="color:var(--text3);font-size:13px">No active scholarship records yet. Add them in Supabase.</p>'}
     </div>
     <div class="card">
       <div style="font-size:18px;font-weight:500;margin-bottom:14px">📰 Latest News</div>
@@ -702,22 +705,13 @@ function rDash(){
         <span style="font-size:20px;flex-shrink:0">${n.e}</span>
         <div><p style="font-size:13px;line-height:1.4;color:${n.new?'var(--text)':'var(--text3)'}">${n.title}</p>
         <div style="display:flex;gap:6px;margin-top:3px;align-items:center">
-          <span class="badge ${n.tc}" style="font-size:10px">${n.tag}</span>
-          <span style="font-size:11px;color:var(--text3)">${n.date}</span>
-          ${n.new?'<span style="width:6px;height:6px;border-radius:50%;background:var(--accent2);display:inline-block"></span>':''}
+          <span class="badge ${n.tc}" style="font-size:10px">${n.tag}</span><span style="font-size:11px;color:var(--text3)">${n.date}</span>
         </div></div></div>`).join('')}
     </div>
   </div>
   <div class="card">
-    <div style="font-size:18px;font-weight:500;margin-bottom:14px">🗺 Your 10-Year Career Roadmap</div>
-    <div class="scroll-row">
-      ${CAREER.map(c=>`<div style="min-width:155px;background:var(--bg3);border-radius:12px;padding:13px;border:1px solid var(--border)">
-        <div style="font-size:22px;margin-bottom:6px">${c.icon}</div>
-        <div style="font-size:11px;color:var(--accent);font-weight:700;text-transform:uppercase;letter-spacing:1px">${c.y}</div>
-        <div style="font-weight:500;font-size:13px;margin:2px 0">${c.title}</div>
-        <div style="font-size:11px;color:var(--text3)">${c.phase}</div>
-      </div>`).join('')}
-    </div>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:10px"><div><div style="font-size:18px;font-weight:500">🗺 Career Roadmap Preview</div><p style="font-size:12px;color:var(--text3)">Based on your goal: ${spEsc((profile.goal||'Build an international academic and professional path').slice(0,80))}${profile.goal&&profile.goal.length>80?'...':''}</p></div><button class="btn btn-outline" onclick="showPage('career')">View Full Plan</button></div>
+    <div class="scroll-row">${CAREER.slice(0,4).map(c=>`<div style="min-width:220px;background:var(--bg3);border:1px solid var(--border);border-radius:12px;padding:14px"><div style="font-size:24px;margin-bottom:8px">${c.icon}</div><div class="year-tag">${c.y}</div><div style="font-size:14px;font-weight:500;margin:4px 0">${c.title}</div><div style="font-size:12px;color:var(--text3)">${c.phase}</div></div>`).join('')}</div>
   </div>`;
 }
 
@@ -727,8 +721,8 @@ function rMatchesLegacy(){
   const countries=['All','Korea','USA','UK','Germany','Japan','EU'];
   const list=SCH.filter(s=>mFilter==='All'||s.country.includes(mFilter));
   pg.innerHTML=`
-  ${topbar('Scholarship <em>Matches</em>','AI-matched — 95%+ success rate only')}
-  <div class="alert alert-i">🤖 Our AI analyzed your profile against 2,400+ scholarships worldwide. These are your highest-probability matches.</div>
+  ${topbar('Scholarship <em>Matches</em>','Eligibility-based Fit Scores')}
+  <div class="alert alert-i">🤖 ScholarsPath compares your profile with scholarship eligibility rules and shows an honest Fit Score. It is guidance, not a success guarantee.</div>
   <div class="tabs">${countries.map(c=>`<button class="tab ${mFilter===c?'active':''}" onclick="setMF('${c}')">${c}</button>`).join('')}</div>
   <div>${list.map(s=>`<div class="match-card">
     <div class="score-box ${s.score>=95?'score-hi':'score-md'}" style="flex-direction:column;gap:1px">
@@ -759,6 +753,163 @@ function setMF(f){mFilter=f;rMatchesLegacy();}
 const sm_DEVELOPING=new Set(["Gabon","Cameroon","Nigeria","Ghana","Senegal","Ivory Coast","Côte d'Ivoire","Mali","Burkina Faso","Niger","Chad","Central African Republic","Republic of the Congo","Democratic Republic of the Congo","Benin","Togo","Guinea","Guinea-Bissau","Sierra Leone","Liberia","Mauritania","Gambia","Kenya","Uganda","Tanzania","Rwanda","Burundi","Ethiopia","Somalia","South Sudan","Sudan","Eritrea","Djibouti","Madagascar","Mozambique","Malawi","Zambia","Zimbabwe","Angola","Namibia","Botswana","Lesotho","Eswatini","Comoros","Cape Verde","Equatorial Guinea","Egypt","Morocco","Algeria","Tunisia","Libya","South Africa","India","Pakistan","Bangladesh","Sri Lanka","Nepal","Bhutan","Myanmar","Cambodia","Laos","Vietnam","Philippines","Indonesia","Mongolia","Uzbekistan","Kyrgyzstan","Tajikistan","Afghanistan","Yemen","Syria","Iraq","Palestine","Bolivia","Honduras","Nicaragua","Guatemala","El Salvador","Haiti","Guyana","Papua New Guinea","Fiji","Samoa","Vanuatu","Solomon Islands","Timor-Leste"]);
 const sm_COMMONWEALTH=new Set(["Botswana","Cameroon","Eswatini","Gabon","Gambia","Ghana","Kenya","Lesotho","Malawi","Mauritius","Mozambique","Namibia","Nigeria","Rwanda","Sierra Leone","South Africa","Tanzania","Togo","Uganda","Zambia","Bangladesh","India","Pakistan","Sri Lanka","Maldives","Malaysia","Jamaica","Guyana","Fiji","Papua New Guinea","Samoa","Solomon Islands","Vanuatu"]);
 const sm_ENG_RANK={none:0,basic:1,intermediate:2,advanced:3,native:4};
+// ── LIVE SCHOLARSHIP DATA FROM SUPABASE ─────────────────────────────────────
+let liveScholarships=[];
+let liveScholarshipsLoaded=false;
+let liveScholarshipsError='';
+let savedScholarshipIds=new Set();
+
+function spEsc(v){
+  return String(v===undefined||v===null?'':v).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c];});
+}
+function spArr(v){return Array.isArray(v)?v:(v?[v]:[]);}
+function spNorm(v){return String(v||'').trim().toLowerCase();}
+function spHasAll(arr){return spArr(arr).some(function(x){var n=spNorm(x);return n==='all countries'||n==='worldwide'||n==='global'||n==='all';});}
+function spFormatDate(v){
+  if(!v) return 'Deadline varies — verify official page';
+  var d=new Date(v+'T00:00:00');
+  if(isNaN(d.getTime())) return String(v);
+  return d.toLocaleDateString(undefined,{year:'numeric',month:'short',day:'numeric'});
+}
+function spDegreeLevel(v){
+  var n=spNorm(v);
+  if(n.includes('phd')||n.includes('doctor')) return 'phd';
+  if(n.includes('master')||n.includes('graduate')) return 'masters';
+  if(n.includes('bachelor')||n.includes('undergraduate')) return 'undergraduate';
+  return n;
+}
+function spMapDegrees(arr){
+  var out=spArr(arr).map(spDegreeLevel).filter(Boolean);
+  return out.length?Array.from(new Set(out)):['undergraduate','masters','phd'];
+}
+function spFieldCat(v){
+  var n=spNorm(v);
+  if(!n||n.includes('all')) return 'all';
+  if(n.includes('human')||n.includes('history')||n.includes('philosophy')||n.includes('theology')||n.includes('language')||n.includes('literature')) return 'humanities';
+  if(n.includes('social')||n.includes('politic')||n.includes('international')||n.includes('development')||n.includes('sociology')||n.includes('anthropology')||n.includes('psychology')) return 'social';
+  if(n.includes('business')||n.includes('econom')||n.includes('finance')||n.includes('accounting')||n.includes('marketing')||n.includes('management')) return 'business';
+  if(n.includes('law')||n.includes('legal')) return 'law';
+  if(n.includes('computer')||n.includes('data')||n.includes('software')||n.includes('ai')||n.includes('information')||n.includes('ict')) return 'ict';
+  if(n.includes('engineering')||n.includes('architecture')) return 'engineering';
+  if(n.includes('medicine')||n.includes('health')||n.includes('nursing')||n.includes('public health')||n.includes('pharmacy')||n.includes('biomedical')) return 'medicine';
+  if(n.includes('agriculture')||n.includes('environment')||n.includes('forestry')||n.includes('food')||n.includes('animal')||n.includes('plant')) return 'agriculture';
+  if(n.includes('education')) return 'education';
+  if(n.includes('art')||n.includes('music')||n.includes('film')||n.includes('design')) return 'arts';
+  if(n.includes('math')||n.includes('physics')||n.includes('chem')||n.includes('biology')||n.includes('science')||n.includes('natural')) return 'natural';
+  return n;
+}
+function spMapFields(arr){
+  var raw=spArr(arr);
+  if(!raw.length||raw.some(function(x){return spFieldCat(x)==='all';})) return 'all';
+  return Array.from(new Set(raw.map(spFieldCat).filter(Boolean)));
+}
+function spGpaToPct(v){
+  var n=parseFloat(v);
+  if(isNaN(n)||n<=0) return null;
+  if(n<=4) return Math.round((n/4)*100);
+  if(n<=5) return Math.round((n/5)*100);
+  if(n<=20) return Math.round((n/20)*100);
+  return Math.min(100,Math.round(n));
+}
+function spEnglishMin(reqs){
+  var text=spArr(reqs).join(' ').toLowerCase();
+  if(!text) return 'basic';
+  if(text.includes('ielts 7')||text.includes('toefl 100')||text.includes('c1')||text.includes('advanced')) return 'advanced';
+  if(text.includes('ielts 6')||text.includes('toefl 80')||text.includes('b2')||text.includes('intermediate')) return 'intermediate';
+  return 'basic';
+}
+function spFundingTypes(v){
+  var n=spNorm(v), out=[];
+  if(n.includes('full')) out.push('fully');
+  if(n.includes('government')) out.push('government');
+  if(n.includes('research')) out.push('research');
+  if(n.includes('development')||n.includes('leadership')) out.push('development');
+  return out.length?out:['fully'];
+}
+function spOpenTo(row){
+  if(spHasAll(row.eligible_nationalities)) return 'worldwide';
+  return 'specific';
+}
+function spDbScholarshipToMatch(row){
+  var funding=[row.funding_type,row.funding_details].filter(Boolean).join(' — ');
+  var eligible=spArr(row.eligible_nationalities);
+  var excluded=spArr(row.excluded_nationalities);
+  return {
+    id:'db-'+row.id,
+    dbId:row.id,
+    name:row.name||'Untitled scholarship',
+    provider:row.provider||'Scholarship provider',
+    country:row.host_country||'Global',
+    openTo:spOpenTo(row),
+    eligibleCountries:eligible,
+    excludedCountries:excluded,
+    levels:spMapDegrees(row.degree_levels),
+    fields:spMapFields(row.fields),
+    minGpaPct:spGpaToPct(row.min_gpa),
+    englishMin:spEnglishMin(row.language_requirements),
+    ageMaxUg:row.max_age||null,
+    ageMaxGrad:row.max_age||null,
+    type:spFundingTypes(row.funding_type),
+    funding:funding||'Funding details available on official page',
+    deadline:row.deadline_text||spFormatDate(row.deadline_date),
+    deadlineDate:row.deadline_date||null,
+    url:row.official_url||'#',
+    env:['structured','applied'],
+    note:row.eligibility_summary||row.description||'',
+    lastVerified:row.last_verified||null
+  };
+}
+async function spFetchScholarships(force){
+  if(liveScholarshipsLoaded&&!force) return liveScholarships;
+  liveScholarshipsError='';
+  try{
+    if(!sb) throw new Error('Supabase is not ready yet.');
+    var res=await sb.from('scholarships').select('*').eq('is_active',true).order('deadline_date',{ascending:true});
+    if(res.error) throw res.error;
+    liveScholarships=(res.data||[]).map(spDbScholarshipToMatch);
+    liveScholarshipsLoaded=true;
+    await spFetchSavedScholarships();
+    return liveScholarships;
+  }catch(e){
+    liveScholarshipsLoaded=true;
+    liveScholarshipsError=e.message||String(e);
+    console.warn('Scholarship load failed',e);
+    return [];
+  }
+}
+function spScholarshipPool(){
+  return liveScholarships.length?liveScholarships:sm_SCHOLARSHIPS;
+}
+async function spFetchSavedScholarships(){
+  try{
+    savedScholarshipIds=new Set();
+    if(!sb) return;
+    var u=await sb.auth.getUser(); var user=(u&&u.data)?u.data.user:null; if(!user) return;
+    var res=await sb.from('saved_scholarships').select('scholarship_id').eq('user_id',user.id);
+    if(!res.error&&(res.data||[]).length){res.data.forEach(function(r){savedScholarshipIds.add(Number(r.scholarship_id));});}
+  }catch(e){console.warn('saved scholarship load failed',e);}
+}
+async function spSaveScholarship(dbId,btn){
+  try{
+    if(!dbId){alert('Only Supabase scholarships can be saved.');return;}
+    var u=await sb.auth.getUser(); var user=(u&&u.data)?u.data.user:null;
+    if(!user){alert('Please log in first.');return;}
+    if(btn){btn.disabled=true;btn.textContent='Saving...';}
+    var res=await sb.from('saved_scholarships').upsert({user_id:user.id,scholarship_id:dbId,status:'saved'});
+    if(res.error) throw res.error;
+    savedScholarshipIds.add(Number(dbId));
+    if(btn){btn.textContent='✓ Saved';btn.className='btn btn-outline';}
+  }catch(e){
+    alert('Could not save this scholarship: '+(e.message||e));
+    if(btn){btn.disabled=false;btn.textContent='💾 Save';}
+  }
+}
+function spSaveButton(s){
+  if(!s.dbId) return '';
+  var saved=savedScholarshipIds.has(Number(s.dbId));
+  return '<button class="btn '+(saved?'btn-outline':'btn-primary')+'" style="margin-top:10px;padding:7px 12px;font-size:12px" onclick="spSaveScholarship('+Number(s.dbId)+',this)">'+(saved?'✓ Saved':'💾 Save')+'</button>';
+}
+
 const sm_SCHOLARSHIPS=[
   {id:"gks",name:"Global Korea Scholarship (GKS)",provider:"NIIED — Korean Government",country:"South Korea",openTo:"partner",levels:["undergraduate","masters","phd"],fields:"all",minGpaPct:80,englishMin:"intermediate",ageMaxUg:25,ageMaxGrad:40,type:["fully","government"],funding:"Full tuition + ~₩900k–1M/mo + airfare + Korean year",deadline:"Grad Feb–Mar · UG Sep–Oct (varies by country)",url:"https://www.studyinkorea.go.kr",env:["structured","applied","collaborative"]},
   {id:"fulbright",name:"Fulbright Foreign Student Program",provider:"U.S. Dept. of State (IIE)",country:"United States",openTo:"partner",levels:["masters","phd"],fields:["humanities","social","business","law","natural","engineering","ict","agriculture","education","arts"],minGpaPct:80,englishMin:"advanced",ageMaxUg:null,ageMaxGrad:null,type:["fully","government","research"],funding:"Tuition + airfare + stipend + health insurance",deadline:"Varies by country (~Feb–Jul 2026 for 2027–28)",url:"https://foreign.fulbrightonline.org",env:["independent","theoretical","analytical","exploratory"]},
@@ -798,7 +949,13 @@ function sm_fit(p,s){
   var parts=[],gaps=[],total=0,eligible=true,reason="";
   function part(key,w,earned,ok,detail,gap){parts.push({key:key,ok:ok,detail:detail,w:w,earned:earned});total+=earned;if(gap&&!ok)gaps.push(gap);}
   var natOk=true,natDetail="Open worldwide";
-  if(s.openTo==="developing"){natOk=sm_DEVELOPING.has(p.nationality);natDetail=natOk?"Eligible (developing-country program)":"Restricted to developing countries";}
+  if(s.excludedCountries&&s.excludedCountries.map(spNorm).indexOf(spNorm(p.nationality))>=0){natOk=false;natDetail="Your nationality appears excluded";}
+  else if(s.openTo==="specific"){
+    var allowed=(s.eligibleCountries||[]).map(spNorm);
+    natOk=allowed.indexOf(spNorm(p.nationality))>=0;
+    natDetail=natOk?"Your nationality is listed as eligible":"Restricted to listed eligible countries";
+  }
+  else if(s.openTo==="developing"){natOk=sm_DEVELOPING.has(p.nationality);natDetail=natOk?"Eligible (developing-country program)":"Restricted to developing countries";}
   else if(s.openTo==="commonwealth"){natOk=sm_COMMONWEALTH.has(p.nationality);natDetail=natOk?"Eligible (Commonwealth country)":"Restricted to Commonwealth countries";}
   else if(s.openTo==="partner"){natOk=true;natDetail="Open to most countries — confirm yours is on the official partner list";}
   part("Nationality",15,natOk?15:0,natOk,natDetail,"This program is limited to specific countries — check the official eligible-country list.");
@@ -855,7 +1012,7 @@ function sm_mindset(answers){
 }
 function sm_bold(t){return "<b>"+t+"</b>";}
 function sm_reco(p,mind){
-  var scored=sm_SCHOLARSHIPS.map(function(s){var o=0;s.env.forEach(function(t){if(mind.tags.has(t))o++;});return{s:s,o:o};}).filter(function(x){return x.o>0;}).sort(function(a,b){return b.o-a.o;});
+  var scored=spScholarshipPool().map(function(s){var o=0;(s.env||[]).forEach(function(t){if(mind.tags.has(t))o++;});return{s:s,o:o};}).filter(function(x){return x.o>0;}).sort(function(a,b){return b.o-a.o;});
   var picks=scored.slice(0,3).map(function(x){return x.s.name;});
   var lead="Your mindset reads as "+sm_bold(mind.archetype)+" ("+mind.type+").";
   var body=picks.length?(" Students with a similar academic mindset often feel most at home with programs like "+sm_bold(picks.join(", "))+". "+mind.desc):(" "+mind.desc+" Explore broadly and let the eligibility matches below guide where you can actually apply.");
@@ -897,12 +1054,15 @@ function rMatches(){
 }
 function sm_val(id){return document.getElementById(id).value;}
 function sm_pick(el){var qi=el.getAttribute('data-q');document.querySelectorAll('.sm-opt[data-q="'+qi+'"]').forEach(function(o){o.classList.remove('sel');});el.classList.add('sel');sm_ans[qi]=parseInt(el.getAttribute('data-v'),10);}
-function sm_run(skipSave){
+async function sm_run(skipSave){
   var err=document.getElementById('sm-err');err.textContent='';
   var gpaVal=sm_val('sm-gpa'),gpaScale=sm_val('sm-scale');
   var p={name:(typeof profile!=='undefined'&&profile?profile.name:'')||'',nationality:sm_val('sm-nat'),age:parseInt(sm_val('sm-age'),10),currentDegree:sm_val('sm-deg'),gpaPct:sm_pct(gpaVal,gpaScale),field:sm_val('sm-field'),dest:sm_val('sm-dest'),schType:sm_val('sm-type'),english:sm_val('sm-eng')};
   if(!p.nationality||!p.currentDegree||!p.field||!p.english||isNaN(p.age)||p.gpaPct===null){err.textContent='Please complete nationality, age, degree, grade, field and English level.';return;}
   if(Object.keys(sm_ans).length<8){err.textContent='Please answer all 8 mindset questions.';return;}
+  err.textContent='Loading verified scholarships from Supabase...';
+  await spFetchScholarships();
+  err.textContent='';
   var answers=[];for(var i=0;i<8;i++)answers.push(sm_ans[i]);
   var mind=sm_mindset(answers),reco=sm_reco(p,mind);
   sm_renderResults(p,mind,reco);
@@ -961,15 +1121,18 @@ function sm_renderResults(p,mind,reco){
   document.getElementById('sm-minddesc').textContent=mind.desc;
   document.getElementById('sm-mindaxes').innerHTML=['a1','a2','a3','a4'].map(function(ax){var d=sm_AXIS_DEF[ax],pc=mind.pct[ax];return '<div class="sm-axis"><div class="sm-albl"><b>'+d.left+'</b><b>'+d.right+'</b></div><div class="sm-track"><div class="sm-dot" style="left:'+pc+'%"></div></div></div>';}).join('');
   document.getElementById('sm-recotext').innerHTML=reco.html;
-  var results=sm_SCHOLARSHIPS.map(function(s){return{s:s,r:sm_fit(p,s)};}).sort(function(a,b){if(a.r.eligible!==b.r.eligible)return a.r.eligible?-1:1;return b.r.score-a.r.score;});
-  document.getElementById('sm-matches').innerHTML=results.map(function(x){
+  var source=spScholarshipPool();
+  if(!source.length){document.getElementById('sm-matches').innerHTML='<div class="card">No active scholarships found yet. Add scholarships in Supabase Table Editor first.</div>';return;}
+  var results=source.map(function(s){return{s:s,r:sm_fit(p,s)};}).sort(function(a,b){if(a.r.eligible!==b.r.eligible)return a.r.eligible?-1:1;return b.r.score-a.r.score;});
+  var sourceNote=liveScholarships.length?'<div class="sm-note">Showing '+liveScholarships.length+' active scholarship(s) loaded from your Supabase database.</div>':'<div class="sm-note">Supabase scholarships could not be loaded, so the app is showing internal fallback examples. Error: '+spEsc(liveScholarshipsError||'No active database records')+'</div>';
+  document.getElementById('sm-matches').innerHTML=sourceNote+results.map(function(x){
     var s=x.s,r=x.r;
     var eCls=!r.eligible?'sm-eb':(r.score>=60?'sm-eo':'sm-ew');
     var eTxt=!r.eligible?('Not eligible — '+r.reason):(r.score>=60?'Eligible':'Eligible — with gaps to close');
     var chips=r.parts.filter(function(pt){return ['Nationality','Degree level','Field of study','GPA','English','Age'].indexOf(pt.key)>=0;}).map(function(pt){return '<span class="sm-chip '+(pt.ok?'ok':'no')+'">'+(pt.ok?'✓':'✗')+' '+pt.key+'</span>';}).join('');
     var gaps=r.gaps.length?'<div class="sm-gaps"><div class="sm-gt">How to close the gap</div><ul>'+r.gaps.map(function(g){return '<li>'+g+'</li>';}).join('')+'</ul></div>':'';
     var note=s.note?'<div class="sm-meta">⚠ '+s.note+'</div>':'';
-    return '<div class="sm-match'+(r.eligible?'':' inelig')+'"><div class="sm-mh"><div><div class="sm-nm">'+s.name+'</div><div class="sm-pv">'+s.provider+' · '+s.country+'</div></div><div class="sm-ring" style="border:3px solid '+sm_ringColor(r.score)+';color:'+sm_ringColor(r.score)+'">'+r.score+'</div></div><div class="sm-ribbon '+eCls+'">'+sm_scoreLabel(r.score,r.eligible)+' · '+eTxt+'</div><div class="sm-chips">'+chips+'</div>'+(r.eligible?sm_whyHtml(r):'')+gaps+'<div class="sm-meta">💰 '+s.funding+'<br>🗓 '+s.deadline+' · <a href="'+s.url+'" target="_blank" rel="noopener">Official page →</a></div>'+note+'</div>';
+    return '<div class="sm-match'+(r.eligible?'':' inelig')+'"><div class="sm-mh"><div><div class="sm-nm">'+spEsc(s.name)+'</div><div class="sm-pv">'+spEsc(s.provider)+' · '+spEsc(s.country)+'</div></div><div class="sm-ring" style="border:3px solid '+sm_ringColor(r.score)+';color:'+sm_ringColor(r.score)+'">'+r.score+'</div></div><div class="sm-ribbon '+eCls+'">'+sm_scoreLabel(r.score,r.eligible)+' · '+spEsc(eTxt)+'</div><div class="sm-chips">'+chips+'</div>'+(r.eligible?sm_whyHtml(r):'')+gaps+'<div class="sm-meta">💰 '+spEsc(s.funding)+'<br>🗓 '+spEsc(s.deadline)+' · '+(s.lastVerified?'Verified: '+spEsc(s.lastVerified)+' · ':'')+'<a href="'+spEsc(s.url)+'" target="_blank" rel="noopener">Official page →</a></div>'+spSaveButton(s)+note+'</div>';
   }).join('');
 }
 
@@ -1033,7 +1196,7 @@ function rPreApp(){
     <h3 style="font-size:20px;font-weight:400;margin-bottom:8px">Generate Your Application</h3>
     <p style="color:var(--text2);font-size:13px;margin-bottom:18px">Select a scholarship and we'll pre-fill a complete application form using your profile data.</p>
     <div class="fg"><label class="fl">Target Scholarship</label>
-      <select class="fi" id="pa-sel"><option value="">Choose scholarship</option>${SCH.map(s=>`<option value="${s.id}">${s.name}</option>`).join('')}</select>
+      <select class="fi" id="pa-sel"><option value="">Choose scholarship</option>${spScholarshipPool().map(s=>`<option value="${s.id}">${spEsc(s.name)}</option>`).join('')}</select>
     </div>
     <button class="btn btn-primary" style="width:100%;justify-content:center;padding:13px" onclick="genPreApp()">✨ Generate Pre-Application</button>
   </div>`;
@@ -1041,7 +1204,8 @@ function rPreApp(){
 function genPreApp(){
   const v=document.getElementById('pa-sel').value;
   if(!v) return;
-  const s=SCH.find(x=>x.id==v);
+  const s=spScholarshipPool().find(x=>String(x.id)===String(v));
+  if(!s){alert('Scholarship not found. Please refresh and try again.');return;}
   document.getElementById('page-preapp').innerHTML=`
   ${topbar('Pre-Application <em>Form</em>','Auto-generated from your profile')}
   <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px">
@@ -1062,7 +1226,7 @@ function genPreApp(){
     <div style="background:#f7fafc;border-radius:8px;padding:14px;font-size:13px;line-height:1.7;color:#4a5568;border-left:3px solid #4fd1c5">
       <p>I am applying for the ${s.name} with a strong conviction that this opportunity will enable me to realize my goal of ${profile.goal||"contributing to meaningful research and development in my field"}.</p><br>
       <p>Having completed my ${profile.deg||"degree"} in ${profile.field||"my field"} with a GPA of ${profile.gpa||"excellent standing"}, I have a strong academic foundation ready for international academic excellence.</p><br>
-      <p>Studying in ${s.country.replace(/[\uD800-\uDFFF]./g,'').trim()} will broaden my horizons and equip me with a global perspective to address challenges in ${profile.nat||"my country"}.</p>
+      <p>Studying in ${String(s.country||'the host country').replace(/[\uD800-\uDFFF]./g,'').trim()} will broaden my horizons and equip me with a global perspective to address challenges in ${profile.nat||"my country"}.</p>
     </div>
   </div>`;
 }
@@ -1284,10 +1448,10 @@ function rCareer(){
     </div>
     <div>
       <div style="font-size:18px;font-weight:500;margin-bottom:18px">🎯 Scholarships for Your Path</div>
-      ${SCH.map(s=>`<div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:12px 14px;margin-bottom:8px;display:flex;gap:10px;align-items:center">
-        <div style="font-size:22px;flex-shrink:0">${s.country.charAt(0)+s.country.charAt(1)}</div>
-        <div style="flex:1"><div style="font-size:13px;font-weight:500;margin-bottom:1px">${s.name}</div><div style="font-size:11px;color:var(--text3)">${s.amt} · ${s.dl}</div></div>
-        <div style="text-align:right"><div style="font-size:15px;font-weight:700;color:${s.score>=95?'var(--accent)':'var(--accent2)'}">${s.score}%</div><div style="font-size:10px;color:var(--text3)">match</div></div>
+      ${spScholarshipPool().slice(0,6).map(s=>`<div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:12px 14px;margin-bottom:8px;display:flex;gap:10px;align-items:center">
+        <div style="font-size:22px;flex-shrink:0">🎓</div>
+        <div style="flex:1"><div style="font-size:13px;font-weight:500;margin-bottom:1px">${spEsc(s.name)}</div><div style="font-size:11px;color:var(--text3)">${spEsc(s.funding||s.amt||'Funding details')} · ${spEsc(s.deadline||s.dl||'Deadline varies')}</div></div>
+        <div style="text-align:right"><div style="font-size:15px;font-weight:700;color:var(--accent)">Fit</div><div style="font-size:10px;color:var(--text3)">score</div></div>
       </div>`).join('')}
       <div class="card" style="margin-top:14px">
         <div style="font-size:22px;margin-bottom:8px">📊</div>
