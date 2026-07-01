@@ -765,6 +765,9 @@ let spCountryGroupLabels={};
 function spEsc(v){
   return String(v===undefined||v===null?'':v).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c];});
 }
+function spJs(v){
+  return JSON.stringify(String(v===undefined||v===null?'':v));
+}
 function spArr(v){return Array.isArray(v)?v:(v?[v]:[]);}
 function spNorm(v){return String(v||'').trim().toLowerCase();}
 function spCountryKey(v){
@@ -1173,11 +1176,12 @@ async function sm_run(skipSave){
   err.textContent='';
   var answers=[];for(var i=0;i<8;i++)answers.push(sm_ans[i]);
   var mind=sm_mindset(answers),reco=sm_reco(p,mind);
+  peerSaveLatestMindset(mind);
   sm_renderResults(p,mind,reco);
   document.getElementById('sm-form').classList.add('sm-hidden');
   document.getElementById('sm-results').classList.remove('sm-hidden');
   window.scrollTo(0,0);
-  if(!skipSave){ sm_save({nationality:p.nationality,age:p.age,currentDegree:p.currentDegree,gpaValue:gpaVal,gpaScale:gpaScale,field:p.field,dest:p.dest,schType:p.schType,english:p.english,answers:answers}); }
+  if(!skipSave){ sm_save({nationality:p.nationality,age:p.age,currentDegree:p.currentDegree,gpaValue:gpaVal,gpaScale:gpaScale,field:p.field,dest:p.dest,schType:p.schType,english:p.english,answers:answers,mindset:{archetype:mind.archetype,type:mind.type,tags:Array.from(mind.tags||[])}}); }
 }
 function sm_back(){document.getElementById('sm-results').classList.add('sm-hidden');document.getElementById('sm-form').classList.remove('sm-hidden');window.scrollTo(0,0);}
 function sm_setVal(id,v){var el=document.getElementById(id);if(el&&v!==undefined&&v!==null)el.value=v;}
@@ -1245,55 +1249,348 @@ function sm_renderResults(p,mind,reco){
   }).join('');
 }
 
-// ── PEERS ─────────────────────────────────────────────────────────────────────
+// ── PEER COMMUNITY — LIVE SUPABASE VERSION ─────────────────────────────────
+let peerProfiles=[];
+let peerProfile=null;
+let peerProfilesLoaded=false;
+let peerProfilesError='';
+let peerMessages=[];
+let peerMessagesLoaded=false;
+let peerBusy=false;
+
+const peer_MINDSETS=['The Changemaker','The Researcher','The Professional','The Explorer','The Analyst','The Generalist'];
+
+function peerSaveLatestMindset(mind){
+  if(!mind) return;
+  var payload={
+    archetype:mind.archetype||'',
+    type:mind.type||'',
+    tags:Array.from(mind.tags||[]),
+    updatedAt:new Date().toISOString()
+  };
+  try{ localStorage.setItem('sp_latest_mindset', JSON.stringify(payload)); }catch(e){}
+  if(peerProfile&&peerProfile.user_id&&sb){
+    sb.from('peer_profiles').update({
+      academic_mindset_archetype:payload.archetype,
+      academic_mindset_type:payload.type,
+      academic_mindset_tags:payload.tags,
+      last_seen:new Date().toISOString()
+    }).eq('user_id',peerProfile.user_id).then(function(res){ if(res&&!res.error){peerProfile=Object.assign({},peerProfile,{academic_mindset_archetype:payload.archetype,academic_mindset_type:payload.type,academic_mindset_tags:payload.tags});} }).catch(function(){});
+  }
+}
+function peerReadStoredMindset(){
+  try{
+    var raw=localStorage.getItem('sp_latest_mindset');
+    if(!raw) return null;
+    var obj=JSON.parse(raw);
+    if(obj&&obj.archetype) return obj;
+  }catch(e){}
+  return null;
+}
+function peerSelectedMindsetPayload(){
+  var stored=peerReadStoredMindset()||{};
+  var sel=document.getElementById('peer-mindset');
+  var arch=sel?sel.value:(stored.archetype||'');
+  return {
+    archetype:arch||'',
+    type:(arch&&arch===stored.archetype)?(stored.type||''):'',
+    tags:(arch&&arch===stored.archetype&&Array.isArray(stored.tags))?stored.tags:[]
+  };
+}
+function peerMindsetOptions(selected){
+  var stored=peerReadStoredMindset();
+  var chosen=selected||(stored&&stored.archetype)||'';
+  return '<option value="">Select connection profile</option>'+peer_MINDSETS.map(function(m){return '<option value="'+spEsc(m)+'" '+(m===chosen?'selected':'')+'>'+spEsc(m)+(stored&&stored.archetype===m?' — from match profiler':'')+'</option>';}).join('');
+}
+function peerMindsetLabel(p){
+  return p&&p.academic_mindset_archetype?p.academic_mindset_archetype:'Profile not set';
+}
+function peerSameMindset(a,b){
+  return !!(a&&b&&a.academic_mindset_archetype&&b.academic_mindset_archetype&&a.academic_mindset_archetype===b.academic_mindset_archetype);
+}
+function peerSameTarget(a,b){
+  return !!(a&&b&&a.target_scholarship_id&&b.target_scholarship_id&&String(a.target_scholarship_id)===String(b.target_scholarship_id));
+}
+
+function peerInitials(name){
+  var n=String(name||'Scholar').trim();
+  var parts=n.split(/\s+/).filter(Boolean);
+  if(!parts.length) return 'S';
+  return parts.slice(0,2).map(function(x){return x[0].toUpperCase();}).join('');
+}
+function peerColor(seed){
+  var colors=['#4fd1c5','#9f7aea','#f6ad55','#68d391','#fc814a','#f687b3','#63b3ed','#b794f4'];
+  var h=0; String(seed||'').split('').forEach(function(ch){h=(h*31+ch.charCodeAt(0))%9999;});
+  return colors[h%colors.length];
+}
+function peerScholarshipOptions(selectedId){
+  var pool=spScholarshipPool();
+  return '<option value="">Select target scholarship</option>'+pool.map(function(s){
+    var sid=s.dbId?String(s.dbId):String(s.id||'');
+    return '<option value="'+spEsc(sid)+'" '+(String(selectedId||'')===sid?'selected':'')+'>'+spEsc(s.name)+'</option>';
+  }).join('');
+}
+function peerFindScholarshipName(id){
+  if(!id) return '';
+  var pool=spScholarshipPool();
+  var found=pool.find(function(s){return String(s.dbId||s.id)===String(id);});
+  return found?found.name:'';
+}
+function peerCountryFlag(country){
+  var map={Gabon:'🇬🇦',Cameroon:'🇨🇲',Nigeria:'🇳🇬',Ghana:'🇬🇭',Kenya:'🇰🇪',India:'🇮🇳',Pakistan:'🇵🇰',Bangladesh:'🇧🇩',France:'🇫🇷','United States':'🇺🇸','United Kingdom':'🇬🇧',Canada:'🇨🇦',Australia:'🇦🇺','South Korea':'🇰🇷',Japan:'🇯🇵',Germany:'🇩🇪'};
+  return map[country]||'🌍';
+}
+async function peerCurrentUser(){
+  if(!sb) return null;
+  var u=await sb.auth.getUser();
+  return (u&&u.data)?u.data.user:null;
+}
+async function peerEnsureProfile(){
+  var user=await peerCurrentUser();
+  if(!user) return null;
+  var display=(profile.name&&profile.name!=='Scholar')?profile.name:(user.email?user.email.split('@')[0]:'Scholar');
+  var mind=peerReadStoredMindset()||{};
+  var payload={
+    user_id:user.id,
+    display_name:display,
+    nationality:profile.nat||'',
+    field:profile.field||'',
+    academic_mindset_archetype:mind.archetype||'',
+    academic_mindset_type:mind.type||'',
+    academic_mindset_tags:Array.isArray(mind.tags)?mind.tags:[],
+    is_visible:true,
+    last_seen:new Date().toISOString()
+  };
+  var existing=await sb.from('peer_profiles').select('*').eq('user_id',user.id).maybeSingle();
+  if(existing.error){throw existing.error;}
+  if(existing.data){
+    peerProfile=existing.data;
+    var upd={last_seen:new Date().toISOString()};
+    if(mind.archetype&&!peerProfile.academic_mindset_archetype){
+      upd.academic_mindset_archetype=mind.archetype;
+      upd.academic_mindset_type=mind.type||'';
+      upd.academic_mindset_tags=Array.isArray(mind.tags)?mind.tags:[];
+    }
+    await sb.from('peer_profiles').update(upd).eq('user_id',user.id);
+    peerProfile=Object.assign({},peerProfile,upd);
+    return peerProfile;
+  }
+  var created=await sb.from('peer_profiles').insert(payload).select('*').single();
+  if(created.error){throw created.error;}
+  peerProfile=created.data;
+  return peerProfile;
+}
+async function peerLoad(force){
+  if(peerProfilesLoaded&&!force) return peerProfiles;
+  peerProfilesError='';
+  try{
+    if(!sb) throw new Error('Supabase is not initialized.');
+    await spFetchScholarships();
+    var user=await peerCurrentUser();
+    if(!user) throw new Error('Please log in first.');
+    await peerEnsureProfile();
+    var res=await sb.from('peer_profiles')
+      .select('user_id,display_name,nationality,field,academic_mindset_archetype,academic_mindset_type,academic_mindset_tags,target_scholarship_id,target_scholarship_name,bio,is_visible,last_seen,created_at')
+      .eq('is_visible',true)
+      .neq('user_id',user.id)
+      .order('last_seen',{ascending:false})
+      .limit(100);
+    if(res.error) throw res.error;
+    peerProfiles=res.data||[];
+    peerProfilesLoaded=true;
+    return peerProfiles;
+  }catch(e){
+    peerProfilesLoaded=true;
+    peerProfilesError=e.message||String(e);
+    peerProfiles=[];
+    return peerProfiles;
+  }
+}
+async function peerSaveSettings(){
+  if(peerBusy) return;
+  peerBusy=true;
+  var btn=document.getElementById('peer-save-btn');
+  try{
+    if(btn){btn.disabled=true;btn.textContent='Saving...';}
+    var user=await peerCurrentUser();
+    if(!user) throw new Error('Please log in first.');
+    var targetId=document.getElementById('peer-target')?document.getElementById('peer-target').value:'';
+    var targetNum=/^\d+$/.test(String(targetId))?Number(targetId):null;
+    var mind=peerSelectedMindsetPayload();
+    var payload={
+      user_id:user.id,
+      display_name:(document.getElementById('peer-name')?document.getElementById('peer-name').value.trim():'')||profile.name||'Scholar',
+      nationality:profile.nat||'',
+      field:profile.field||'',
+      academic_mindset_archetype:mind.archetype||'',
+      academic_mindset_type:mind.type||'',
+      academic_mindset_tags:Array.isArray(mind.tags)?mind.tags:[],
+      target_scholarship_id:targetNum,
+      target_scholarship_name:targetId?peerFindScholarshipName(targetId):'',
+      bio:(document.getElementById('peer-bio')?document.getElementById('peer-bio').value.trim():'').slice(0,500),
+      is_visible:document.getElementById('peer-visible')?document.getElementById('peer-visible').checked:true,
+      last_seen:new Date().toISOString()
+    };
+    var res=await sb.from('peer_profiles').upsert(payload,{onConflict:'user_id'}).select('*').single();
+    if(res.error) throw res.error;
+    peerProfile=res.data;
+    peerProfilesLoaded=false;
+    if(btn){btn.textContent='✓ Saved';}
+    setTimeout(function(){rPeers();},600);
+  }catch(e){
+    alert('Could not save peer profile: '+(e.message||e));
+    if(btn){btn.disabled=false;btn.textContent='Save peer profile';}
+  }finally{peerBusy=false;}
+}
+function peerProfileCard(){
+  var p=peerProfile||{};
+  var stored=peerReadStoredMindset();
+  var autoNote=stored&&stored.archetype?('Detected from your match profiler: '+stored.archetype):'Complete the Matches profiler once to auto-detect your profile.';
+  return '<div class="card" style="margin-bottom:16px">'+
+    '<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:12px">'+
+      '<div><div class="sec-title">Your peer profile</div><div class="sec-sub">At the beginning, every visible student can discover every other visible student. Your academic profile only helps prioritize the best conversations.</div></div>'+ 
+      '<span class="badge bg">Open discovery</span>'+ 
+    '</div>'+ 
+    '<div class="grid2">'+
+      '<div class="fg"><label class="fl">Display name</label><input class="fi" id="peer-name" value="'+spEsc(p.display_name||profile.name||'Scholar')+'"></div>'+ 
+      '<div class="fg"><label class="fl">Connection profile</label><select class="fi" id="peer-mindset">'+peerMindsetOptions(p.academic_mindset_archetype)+'</select><div style="font-size:11px;color:var(--text3);margin-top:5px">'+spEsc(autoNote)+'</div></div>'+ 
+      '<div class="fg"><label class="fl">Target scholarship (optional)</label><select class="fi" id="peer-target">'+peerScholarshipOptions(p.target_scholarship_id)+'</select><div style="font-size:11px;color:var(--text3);margin-top:5px">Optional for now — users are not filtered by scholarship.</div></div>'+ 
+      '<div class="fg"><label class="fl">Your field</label><input class="fi" value="'+spEsc(profile.field||p.field||'')+'" disabled></div>'+ 
+    '</div>'+ 
+    '<div class="fg"><label class="fl">Short bio</label><textarea class="fi" id="peer-bio" placeholder="Example: I am a Changemaker preparing scholarship applications and looking for accountability partners." maxlength="500">'+spEsc(p.bio||'')+'</textarea></div>'+ 
+    '<div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">'+
+      '<label style="font-size:13px;color:var(--text2);display:flex;align-items:center;gap:8px"><input type="checkbox" id="peer-visible" '+(p.is_visible===false?'':'checked')+'> Make me visible to other students</label>'+ 
+      '<button class="btn btn-primary" id="peer-save-btn" onclick="peerSaveSettings()">Save peer profile</button>'+ 
+    '</div>'+ 
+  '</div>';
+}
+function peerCard(p){
+  var sameMind=peerSameMindset(peerProfile,p);
+  var sameTarget=peerSameTarget(peerProfile,p);
+  var last=p.last_seen?new Date(p.last_seen):null;
+  var mins=last&&!isNaN(last.getTime())?Math.round((Date.now()-last.getTime())/60000):null;
+  var online=mins!==null&&mins<15;
+  var badgeTxt=sameMind?'Same profile':(sameTarget?'Same scholarship':'Open peer');
+  var badgeCls=sameMind?'bg':(sameTarget?'bp':'bo');
+  return '<div class="peer-card '+(selPeer&&selPeer.user_id===p.user_id?'sel':'')+'" onclick="selPeerFn('+spJs(p.user_id)+')">'+
+    '<div class="peer-av" style="background:'+peerColor(p.user_id+p.display_name)+'">'+peerInitials(p.display_name)+(online?'<span class="online-dot"></span>':'')+'</div>'+ 
+    '<div style="flex:1;min-width:0"><div style="font-weight:500;font-size:14px">'+spEsc(p.display_name)+' '+peerCountryFlag(p.nationality)+'</div>'+ 
+    '<div style="font-size:12px;color:var(--accent)">'+spEsc(peerMindsetLabel(p))+'</div>'+ 
+    '<div style="font-size:12px;color:var(--text3)">'+spEsc(p.field||'Field not specified')+'</div>'+ 
+    '<div style="font-size:11px;color:var(--text3)">Target: '+spEsc(p.target_scholarship_name||'Open / not selected')+'</div></div>'+ 
+    '<span class="badge '+badgeCls+'" style="font-size:10px">'+badgeTxt+'</span>'+ 
+  '</div>';
+}
+function peerListHtml(){
+  if(!peerProfilesLoaded) return '<div class="card"><p style="color:var(--text3)">Loading real peer community from Supabase...</p></div>';
+  if(peerProfilesError) return '<div class="alert alert-w"><span>⚠</span><span>Peer community tables are not ready or not accessible yet: '+spEsc(peerProfilesError)+'</span></div>';
+  if(!peerProfiles.length) return '<div class="card" style="text-align:center;color:var(--text3);padding:34px"><div style="font-size:42px;margin-bottom:8px">🤝</div><p>No other visible peer profiles yet.</p><p style="font-size:12px;margin-top:6px">Open discovery is ready. As soon as one more user creates a visible peer profile, both students can connect.</p></div>';
+  var sorted=peerProfiles.slice().sort(function(a,b){
+    var am=peerSameMindset(peerProfile,a)?1:0;
+    var bm=peerSameMindset(peerProfile,b)?1:0;
+    if(am!==bm) return bm-am;
+    var at=peerSameTarget(peerProfile,a)?1:0;
+    var bt=peerSameTarget(peerProfile,b)?1:0;
+    if(at!==bt) return bt-at;
+    return String(b.last_seen||'').localeCompare(String(a.last_seen||''));
+  });
+  return sorted.map(peerCard).join('');
+}
+async function selPeerFn(userId){
+  selPeer=peerProfiles.find(function(p){return String(p.user_id)===String(userId);})||null;
+  peerMessagesLoaded=false;
+  rPeers();
+  await peerLoadMessages();
+  rPeers();
+}
+async function peerLoadMessages(){
+  peerMessages=[];
+  if(!selPeer||!sb) return;
+  try{
+    var user=await peerCurrentUser();
+    if(!user) return;
+    var res=await sb.from('peer_messages')
+      .select('id,sender_id,receiver_id,body,created_at,read_at')
+      .or('sender_id.eq.'+user.id+',receiver_id.eq.'+user.id)
+      .order('created_at',{ascending:true})
+      .limit(200);
+    if(res.error) throw res.error;
+    peerMessages=(res.data||[]).filter(function(m){
+      return (m.sender_id===user.id&&m.receiver_id===selPeer.user_id)||(m.sender_id===selPeer.user_id&&m.receiver_id===user.id);
+    });
+    peerMessagesLoaded=true;
+  }catch(e){
+    peerMessagesLoaded=true;
+    peerProfilesError=e.message||String(e);
+  }
+}
+function buildChat(){
+  if(!selPeer){
+    return '<div class="card" style="display:flex;align-items:center;justify-content:center;min-height:360px;flex-direction:column;gap:10px;color:var(--text3)"><div style="font-size:44px">💬</div><p>Select a real peer to start chatting</p></div>';
+  }
+  var p=selPeer;
+  return '<div class="card" style="display:flex;flex-direction:column;min-height:440px">'+
+    '<div style="display:flex;align-items:center;gap:10px;padding-bottom:13px;margin-bottom:13px;border-bottom:1px solid var(--border)">'+
+      '<div class="peer-av" style="background:'+peerColor(p.user_id+p.display_name)+';width:38px;height:38px;font-size:13px">'+peerInitials(p.display_name)+'</div>'+ 
+      '<div style="flex:1"><div style="font-weight:500">'+spEsc(p.display_name)+' '+peerCountryFlag(p.nationality)+'</div><div style="font-size:12px;color:var(--accent)">'+spEsc(peerMindsetLabel(p))+'</div><div style="font-size:12px;color:var(--text3)">Target: '+spEsc(p.target_scholarship_name||'Open / not selected')+'</div></div>'+ 
+      '<button class="btn btn-outline" style="padding:6px 10px;font-size:12px" onclick="peerLoadMessages().then(rPeers)">Refresh</button>'+ 
+    '</div>'+ 
+    '<div class="chat-wrap" id="chat-msgs">'+
+      (!peerMessagesLoaded?'<div style="text-align:center;color:var(--text3);font-size:13px;padding:28px 0">Loading messages...</div>':
+      (peerMessages.length===0?'<div style="text-align:center;color:var(--text3);font-size:13px;padding:28px 0"><div style="font-size:30px;margin-bottom:8px">👋</div>Say hello to '+spEsc((p.display_name||'Scholar').split(' ')[0])+'!</div>':
+      peerMessages.map(function(m){
+        var mine=peerProfile&&m.sender_id===peerProfile.user_id;
+        var time=m.created_at?new Date(m.created_at).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}):'';
+        return '<div><div style="font-size:10px;color:var(--text3);margin-bottom:2px;text-align:'+(mine?'right':'left')+'">'+(mine?'You':spEsc((p.display_name||'Peer').split(' ')[0]))+' · '+time+'</div><div class="bubble '+(mine?'me':'')+'">'+spEsc(m.body)+'</div></div>';
+      }).join('')))+
+    '</div>'+ 
+    '<div style="display:flex;gap:8px;margin-top:auto">'+
+      '<input class="fi" id="peer-inp" placeholder="Type a message..." maxlength="2000" style="flex:1" onkeydown="if(event.key===\'Enter\')sendPeer()">'+
+      '<button class="btn btn-primary" onclick="sendPeer()">Send</button>'+ 
+    '</div>'+ 
+  '</div>';
+}
+async function sendPeer(){
+  var inp=document.getElementById('peer-inp');
+  if(!inp||!inp.value.trim()||!selPeer||peerBusy) return;
+  peerBusy=true;
+  try{
+    var user=await peerCurrentUser();
+    if(!user) throw new Error('Please log in first.');
+    var body=inp.value.trim().slice(0,2000);
+    inp.value='';
+    var res=await sb.from('peer_messages').insert({sender_id:user.id,receiver_id:selPeer.user_id,body:body});
+    if(res.error) throw res.error;
+    await peerLoadMessages();
+    rPeers();
+    setTimeout(function(){var cm=document.getElementById('chat-msgs');if(cm)cm.scrollTop=cm.scrollHeight;},50);
+  }catch(e){
+    alert('Could not send message: '+(e.message||e));
+  }finally{peerBusy=false;}
+}
 function rPeers(){
   const pg=document.getElementById('page-peers');
-  const chatPanel=selPeer?buildChat():
-    `<div class="card" style="display:flex;align-items:center;justify-content:center;min-height:300px;flex-direction:column;gap:10px;color:var(--text3)"><div style="font-size:44px">💬</div><p>Select a peer to start chatting</p></div>`;
+  if(!peerProfilesLoaded){
+    pg.innerHTML=`${topbar('Peer <em>Community</em>','Find students by profile, not only by scholarship')}
+    <div class="alert alert-i"><span>✦</span><span>This is a real Supabase-backed community. At launch, all visible students can discover each other; academic profile only prioritizes the strongest matches.</span></div>
+    <div class="card"><p style="color:var(--text3)">Loading peer community...</p></div>`;
+    peerLoad(false).then(function(){rPeers();});
+    return;
+  }
   pg.innerHTML=`
-  ${topbar('Peer <em>Community</em>','Connect with students applying to the same scholarships')}
+  ${topbar('Peer <em>Community</em>','Find students by profile, not only by scholarship')}
+  <div class="alert alert-i"><span>✦</span><span>Your email is never shown. At launch, students are not filtered out by scholarship choice. The app shows all visible peers and prioritizes same academic profiles such as Changemaker, Researcher, Analyst, Explorer, Professional, and Generalist.</span></div>
+  ${peerProfileCard()}
   <div class="grid2">
-    <div>${PEERS.map(p=>`<div class="peer-card ${selPeer&&selPeer.id===p.id?'sel':''}" onclick="selPeerFn(${p.id})">
-      <div class="peer-av" style="background:${p.col}">${p.name.split(' ').map(x=>x[0]).join('')}${p.online?'<span class="online-dot"></span>':''}</div>
-      <div style="flex:1"><div style="font-weight:500;font-size:14px">${p.name} ${p.cc}</div>
-      <div style="font-size:12px;color:var(--text3)">Applying: ${p.target}</div>
-      <div style="font-size:12px;color:var(--text3)">${p.field}</div></div>
-      <span class="badge ${p.online?'bg':'bo'}" style="font-size:10px">${p.online?'● Online':'Away'}</span>
-    </div>`).join('')}</div>
-    <div id="chat-panel">${chatPanel}</div>
+    <div>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+        <div><div class="sec-title">Available peers</div><div class="sec-sub">All visible students appear. Same academic profile appears first; same scholarship is secondary.</div></div>
+        <button class="btn btn-outline" style="padding:7px 12px;font-size:12px" onclick="peerProfilesLoaded=false;rPeers()">Refresh</button>
+      </div>
+      ${peerListHtml()}
+    </div>
+    <div id="chat-panel">${buildChat()}</div>
   </div>`;
-}
-function selPeerFn(id){selPeer=PEERS.find(p=>p.id===id);if(!pChats[id])pChats[id]=[];rPeers();}
-function buildChat(){
-  const p=selPeer;const msgs=pChats[p.id]||[];
-  return `<div class="card" style="display:flex;flex-direction:column;min-height:380px">
-    <div style="display:flex;align-items:center;gap:10px;padding-bottom:13px;margin-bottom:13px;border-bottom:1px solid var(--border)">
-      <div class="peer-av" style="background:${p.col};width:38px;height:38px;font-size:13px">${p.name.split(' ').map(x=>x[0]).join('')}</div>
-      <div style="flex:1"><div style="font-weight:500">${p.name} ${p.cc}</div><div style="font-size:12px;color:var(--text3)">Applying to ${p.target}</div></div>
-      ${p.online?'<span class="badge bg" style="font-size:10px">● Online</span>':''}
-    </div>
-    <div class="chat-wrap" id="chat-msgs">${msgs.length===0?`<div style="text-align:center;color:var(--text3);font-size:13px;padding:28px 0"><div style="font-size:30px;margin-bottom:8px">👋</div>Say hello to ${p.name.split(' ')[0]}!</div>`:
-      msgs.map(m=>`<div><div style="font-size:10px;color:var(--text3);margin-bottom:2px;text-align:${m.f==='me'?'right':'left'}">${m.f==='me'?'You':p.name.split(' ')[0]} · ${m.t}</div><div class="bubble ${m.f==='me'?'me':''}">${m.msg}</div></div>`).join('')}
-    </div>
-    <div style="display:flex;gap:8px;margin-top:auto">
-      <input class="fi" id="peer-inp" placeholder="Type a message..." style="flex:1" onkeydown="if(event.key==='Enter')sendPeer()">
-      <button class="btn btn-primary" onclick="sendPeer()">Send</button>
-    </div>
-  </div>`;
-}
-function sendPeer(){
-  const inp=document.getElementById('peer-inp');
-  if(!inp||!inp.value.trim()||!selPeer) return;
-  const t=new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
-  pChats[selPeer.id].push({msg:inp.value,f:'me',t});inp.value='';
-  document.getElementById('chat-panel').innerHTML=buildChat();
-  const r=["That's great! I'm also working on my personal statement 📝","Have you checked the new deadline update?","Let's connect for a study session this weekend!","I just got feedback from my professor, so helpful!","Which university are you targeting?"];
-  setTimeout(()=>{
-    pChats[selPeer.id].push({msg:r[Math.floor(Math.random()*r.length)],f:'peer',t:new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})});
-    document.getElementById('chat-panel').innerHTML=buildChat();
-    const cm=document.getElementById('chat-msgs');if(cm)cm.scrollTop=cm.scrollHeight;
-  },1300);
-  const cm=document.getElementById('chat-msgs');if(cm)cm.scrollTop=cm.scrollHeight;
 }
 
 // ── PRE-APPLICATION ───────────────────────────────────────────────────────────
