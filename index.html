@@ -332,6 +332,25 @@ textarea.fi{resize:vertical;min-height:80px}
 
 
 
+
+/* ===== Curated News / Newsletter ===== */
+.news-hero{background:linear-gradient(135deg,rgba(79,209,197,.08),rgba(159,122,234,.06));border:1px solid var(--border);border-radius:var(--radius);padding:20px;margin-bottom:18px}
+.news-split{display:grid;grid-template-columns:1.35fr .65fr;gap:18px}
+@media(max-width:900px){.news-split{grid-template-columns:1fr}}
+.news-feed-card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:18px;margin-bottom:13px;transition:.2s}
+.news-feed-card:hover{border-color:rgba(79,209,197,.32);box-shadow:0 0 24px rgba(79,209,197,.07)}
+.news-feed-top{display:flex;justify-content:space-between;gap:12px;align-items:flex-start;margin-bottom:10px}
+.news-feed-title{font-size:17px;font-weight:600;line-height:1.35;margin-bottom:6px}
+.news-score{min-width:68px;height:58px;border-radius:12px;background:rgba(79,209,197,.1);border:1px solid rgba(79,209,197,.28);display:flex;flex-direction:column;align-items:center;justify-content:center;color:var(--accent);font-weight:700}
+.news-score span{font-size:10px;color:var(--text3);font-weight:500;text-transform:uppercase;letter-spacing:.4px}
+.news-reason{margin-top:10px;background:var(--bg3);border:1px dashed var(--border);border-radius:10px;padding:10px 12px;font-size:12.5px;color:var(--text2)}
+.news-meta-row{display:flex;gap:7px;flex-wrap:wrap;align-items:center;margin:8px 0}
+.news-empty{background:var(--card);border:1px dashed var(--border);border-radius:var(--radius);padding:22px;text-align:center;color:var(--text2)}
+.news-pref-box{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:18px;position:sticky;top:20px}
+.newsletter-box{background:#fff;color:#1a202c;border-radius:var(--radius);padding:28px;box-shadow:0 18px 50px rgba(0,0,0,.35)}
+.newsletter-box h2{font-size:24px;margin-bottom:8px;color:#1a202c}.newsletter-box h3{font-size:15px;color:#2d3748;margin:18px 0 8px}.newsletter-box p,.newsletter-box li{font-size:13px;color:#4a5568;line-height:1.65}.newsletter-box ul{padding-left:18px}
+.news-brief-note{background:#edfdfd;border:1px solid #bee3e3;color:#285e61;border-radius:10px;padding:10px 12px;font-size:12px;margin:12px 0}
+
 </style>
 </head>
 <body>
@@ -706,6 +725,11 @@ let wConvo=[{from:'ai',text:"Hi! I'm here to support you through your scholarshi
 let ivMode='setup',ivIdx=0,ivAnswers=[];
 let isRec=false,recInt=null,recSec=0;
 let mFilter='All',nFilter='All';
+let newsTab='daily',newsCat='All';
+let curatedNewsItems=[];
+let weeklyNewsletters=[];
+let newsPreferences=null;
+let newsLoaded=false;
 let mentorProfiles=[];
 let mentorReviews=[];
 let mentorBookings=[];
@@ -2669,35 +2693,180 @@ function genPreAppDraft(t){
   </div>`;
 }
 
-// ── NEWS ──────────────────────────────────────────────────────────────────────
-function rNews(){
-  const tags=['All','Korea','USA','UK','Germany','Japan','EU','Global'];
-  const list=NEWS.filter(n=>nFilter==='All'||n.tag===nFilter||nFilter==='Global');
-  document.getElementById('page-news').innerHTML=`
-  ${topbar('Scholarship <em>News</em>','Curated updates matched to your profile')}
-  <div class="tabs">${tags.map(t=>`<button class="tab ${nFilter===t?'active':''}" onclick="setNF('${t}')">${t}</button>`).join('')}</div>
-  <div class="grid3">${list.map(n=>`<div class="news-card">
-    <div class="news-img">${n.e}</div>
-    <div class="news-body">
-      <div style="display:flex;align-items:center;gap:7px;margin-bottom:7px">
-        <span class="badge ${n.tc}" style="font-size:10px">${n.tag}</span>
-        ${n.new?'<span style="width:6px;height:6px;border-radius:50%;background:var(--accent2);display:inline-block"></span>':''}
-      </div>
-      <div class="news-title">${n.title}</div>
-      <div class="news-meta"><span>⏱ ${n.date}</span><span>📖 2 min</span></div>
-    </div>
-  </div>`).join('')}</div>
-  <div class="card" style="margin-top:20px">
-    <div style="font-size:18px;font-weight:500;margin-bottom:14px">🔔 Set Up News Alerts</div>
-    <div class="grid2">
-      <div class="fg"><label class="fl">Alert Keywords</label><input class="fi" placeholder="e.g. STEM, Engineering, Korea..."></div>
-      <div class="fg"><label class="fl">Email Frequency</label><select class="fi"><option>Daily Digest</option><option>Weekly Summary</option><option>Instant Alerts</option></select></div>
-    </div>
-    <button class="btn btn-primary" onclick="alert('Alert preferences saved!')">Save Preferences</button>
+// ── CURATED NEWS + WEEKLY NEWSLETTER ──────────────────────────────────────────
+function newsArr(v){return Array.isArray(v)?v:(v?[v]:[]);}
+function newsNorm(v){return (v||'').toString().trim().toLowerCase();}
+function newsHas(arr,val){val=newsNorm(val);return newsArr(arr).some(x=>newsNorm(x)===val||newsNorm(x)==='all fields'||newsNorm(x)==='all countries');}
+function newsDate(v){try{return v?new Date(v).toLocaleDateString():'';}catch(e){return '';}}
+function newsZoneFromScholarship(s){
+  const c=(s.host_country||s.country||'Global').toLowerCase();
+  if(c.includes('europe'))return 'Europe'; if(c.includes('united kingdom')||c.includes('uk'))return 'United Kingdom';
+  if(c.includes('united states'))return 'United States'; if(c.includes('canada'))return 'Canada'; if(c.includes('korea'))return 'South Korea';
+  if(c.includes('japan'))return 'Japan'; if(c.includes('australia'))return 'Australia'; if(c.includes('germany'))return 'Germany';
+  return s.host_country||s.country||'Global';
+}
+function newsActiveScholarshipAlerts(){
+  const source=(Array.isArray(spScholarships)&&spScholarships.length)?spScholarships:[];
+  return source.slice(0,8).map((s,i)=>({
+    id:'sch-'+s.id,
+    title:'Scholarship watch: '+(s.name||'Active scholarship'),
+    summary:(s.deadline_text||appDateLabel(s.deadline_date)||'Deadline varies')+' — verify official requirements and prepare documents early.',
+    category:'Scholarship deadline',
+    zone:newsZoneFromScholarship(s),
+    countries:newsArr(s.host_country?[s.host_country]:'Global'),
+    university_name:s.provider||'',
+    scholarship_id:s.id,
+    source_name:s.provider||'Official scholarship page',
+    source_url:s.official_url||'#',
+    official_url:s.official_url||'#',
+    published_at:s.updated_at||s.created_at||new Date().toISOString(),
+    deadline_date:s.deadline_date||null,
+    fields:newsArr(s.fields&&s.fields.length?s.fields:['All fields']),
+    degree_levels:newsArr(s.degree_levels&&s.degree_levels.length?s.degree_levels:['All levels']),
+    tags:['scholarship','deadline','application'],
+    is_generated_alert:true
+  }));
+}
+async function loadCuratedNews(force){
+  if(!sb)return;
+  if(newsLoaded&&!force)return;
+  newsLoaded=true;
+  const {data:{user}}=await sb.auth.getUser();
+  const prefRes=await sb.from('user_news_preferences').select('*').eq('user_id',user.id).maybeSingle();
+  newsPreferences=prefRes.data||{
+    user_id:user.id,
+    preferred_zones:[], preferred_countries:[], preferred_universities:[], preferred_categories:[], preferred_fields:[],
+    daily_digest_enabled:true, weekly_newsletter_enabled:true, newsletter_day:'Monday'
+  };
+  const newsRes=await sb.from('curated_news_items').select('*').eq('is_active',true).order('published_at',{ascending:false}).limit(80);
+  curatedNewsItems=newsRes.data||[];
+  const nlRes=await sb.from('weekly_newsletters').select('*').eq('is_public',true).order('issue_date',{ascending:false}).limit(10);
+  weeklyNewsletters=nlRes.data||[];
+}
+function scoreCuratedNews(item){
+  const prefs=newsPreferences||{};
+  const reasons=[]; let score=30;
+  const zones=newsArr(prefs.preferred_zones), countries=newsArr(prefs.preferred_countries), unis=newsArr(prefs.preferred_universities), cats=newsArr(prefs.preferred_categories), fields=newsArr(prefs.preferred_fields);
+  if(zones.length&&zones.some(z=>newsNorm(z)===newsNorm(item.zone))){score+=16;reasons.push('preferred zone');}
+  if(countries.length&&newsArr(item.countries).some(c=>countries.map(newsNorm).includes(newsNorm(c)))){score+=16;reasons.push('preferred country');}
+  if(unis.length&&unis.some(u=>newsNorm(item.university_name||'').includes(newsNorm(u)))){score+=18;reasons.push('target university');}
+  if(cats.length&&cats.some(c=>newsNorm(c)===newsNorm(item.category))){score+=12;reasons.push('preferred news type');}
+  const pField=profile.field||'';
+  if((fields.length&&newsArr(item.fields).some(f=>fields.map(newsNorm).includes(newsNorm(f))))||newsHas(item.fields,pField)){score+=16;reasons.push('field relevance');}
+  if(newsHas(item.degree_levels,profile.deg)||newsArr(item.degree_levels).some(d=>newsNorm(profile.deg).includes(newsNorm(d)))){score+=10;reasons.push('degree-level fit');}
+  if(item.scholarship_id&&appTrackers&&appTrackers.some(t=>Number(t.scholarship_id)===Number(item.scholarship_id))){score+=22;reasons.push('connected to a saved application');}
+  if(item.deadline_date){const days=(new Date(item.deadline_date)-new Date())/86400000;if(days>=0&&days<=45){score+=12;reasons.push('deadline-sensitive');}}
+  if(item.category&&/event|webinar|workshop/i.test(item.category)){score+=5;reasons.push('opportunity/event');}
+  if(!reasons.length){reasons.push('general scholarship intelligence for your profile');}
+  return {score:Math.max(1,Math.min(99,Math.round(score))),reasons};
+}
+function personalizedNews(){
+  const merged=[...curatedNewsItems,...newsActiveScholarshipAlerts()];
+  const ranked=merged.map(n=>({item:n,meta:scoreCuratedNews(n)})).sort((a,b)=>b.meta.score-a.meta.score);
+  if(newsCat!=='All')return ranked.filter(x=>newsNorm(x.item.category)===newsNorm(newsCat)||newsNorm(x.item.zone)===newsNorm(newsCat));
+  return ranked;
+}
+function newsCategories(){
+  const cats=['All','Scholarship deadline','University project','University event','Research opportunity','Admissions update','Visa / immigration','Student support','Hidden signal'];
+  curatedNewsItems.forEach(n=>{if(n.category&&!cats.includes(n.category))cats.push(n.category);});
+  return cats;
+}
+function newsBadgeClass(cat){
+  cat=(cat||'').toLowerCase();
+  if(cat.includes('deadline')||cat.includes('scholarship'))return 'bg';
+  if(cat.includes('event')||cat.includes('visa'))return 'bo';
+  if(cat.includes('research')||cat.includes('project'))return 'bp';
+  return 'br';
+}
+function renderNewsCard(x){
+  const n=x.item,m=x.meta;
+  const url=n.official_url||n.source_url||'#';
+  return `<div class="news-feed-card">
+    <div class="news-feed-top"><div style="flex:1"><div class="news-feed-title">${appEsc(n.title||'Curated update')}</div>
+      <div class="news-meta-row"><span class="badge ${newsBadgeClass(n.category)}">${appEsc(n.category||'Update')}</span><span class="tag">${appEsc(n.zone||'Global')}</span>${n.university_name?`<span class="tag">🏛 ${appEsc(n.university_name)}</span>`:''}${n.deadline_date?`<span class="tag">⏰ ${newsDate(n.deadline_date)}</span>`:''}</div></div>
+      <div class="news-score">${m.score}%<span>match</span></div></div>
+    <p style="font-size:13.5px;color:var(--text2);margin-bottom:10px">${appEsc(n.summary||n.description||'Open the official source and verify details before acting.')}</p>
+    <div class="news-reason"><b style="color:var(--accent)">Why you see this:</b> ${m.reasons.map(appEsc).join(', ')}. This is curated for your profile, preferences, saved applications and academic direction.</div>
+    <div style="display:flex;gap:9px;flex-wrap:wrap;margin-top:12px"><a class="btn btn-outline" href="${appEsc(url)}" target="_blank" rel="noopener">Open source</a><button class="btn btn-ghost" onclick="saveNewsItem('${appEsc(String(n.id))}')">Save</button></div>
   </div>`;
 }
-function setNF(f){nFilter=f;rNews();}
-
+function renderDailyNews(){
+  const list=personalizedNews();
+  return `<div class="news-split"><div>
+    <div class="news-hero"><h2 style="font-size:22px;font-weight:400;margin-bottom:6px">Daily Curated Feed</h2><p style="color:var(--text2);font-size:13px">Not bulk news. These updates are ranked for your preferred zones, target universities, saved scholarships, degree level and field.</p></div>
+    <div class="tabs">${newsCategories().map(c=>`<button class="tab ${newsCat===c?'active':''}" onclick="setNewsCat('${appEsc(c)}')">${appEsc(c)}</button>`).join('')}</div>
+    ${list.length?list.map(renderNewsCard).join(''):`<div class="news-empty"><div style="font-size:34px;margin-bottom:8px">📰</div><b>No curated news yet.</b><br>Add verified items in Supabase or save scholarships so ScholarsPath can create scholarship-watch alerts.</div>`}
+  </div><div>${renderNewsPreferenceBox()}</div></div>`;
+}
+function newsletterDraft(){
+  const list=personalizedNews().slice(0,8);
+  const top=list.slice(0,4);
+  const gaps=[];
+  if(!newsPreferences||!newsArr(newsPreferences.preferred_zones).length)gaps.push('Choose preferred study zones so the feed can stop being generic.');
+  if(appPassport&&!appPassport.research_interests)gaps.push('Add research interests in your Application Passport to improve university project/news relevance.');
+  if(appTrackers&&appTrackers.some(t=>!t.target_university))gaps.push('Add target universities to tracked applications so the newsletter can monitor institutional news.');
+  if(!top.length)gaps.push('No external curated news has been added yet; current brief is built from active scholarship records.');
+  return {top,gaps};
+}
+function renderWeeklyNewsletter(){
+  const latest=weeklyNewsletters&&weeklyNewsletters.length?weeklyNewsletters[0]:null;
+  const d=newsletterDraft();
+  return `<div class="grid2"><div class="card"><div style="font-size:18px;font-weight:500;margin-bottom:8px">Weekly ScholarsPath Intelligence Brief</div><p style="color:var(--text2);font-size:13px;margin-bottom:14px">A weekly AI-curated article feed designed to connect the visible news with the hidden opportunity signals behind it. Free now; paid premium intelligence can be added later.</p>
+    <div class="alert alert-i"><span>✦</span><span><b>Important:</b> this version prepares the newsletter engine. Full AI writing should later run server-side through a secure Edge Function, not directly in the browser.</span></div>
+    <button class="btn btn-primary" onclick="renderNewsletterPreview()">Generate weekly preview</button></div>
+    <div class="card"><div style="font-size:18px;font-weight:500;margin-bottom:10px">Newsletter Settings</div><p style="font-size:13px;color:var(--text2);margin-bottom:12px">Current schedule: once per week. Daily curated news remains separate.</p><button class="btn btn-outline" onclick="newsTab='prefs';rNews()">Edit preferences</button></div></div>
+    <div id="newsletter-preview" style="margin-top:18px">${latest?renderNewsletterStored(latest):renderNewsletterBox(d)}</div>`;
+}
+function renderNewsletterStored(n){
+  return `<div class="newsletter-box"><h2>${appEsc(n.title||'ScholarsPath Weekly Brief')}</h2><p style="color:#718096">Issue date: ${newsDate(n.issue_date)}</p><div class="news-brief-note">Stored newsletter from Supabase. It can be generated by a future AI pipeline and reviewed before publication.</div><div style="white-space:pre-wrap;font-size:13px;line-height:1.65;color:#4a5568">${appEsc(n.body||n.summary||'')}</div></div>`;
+}
+function renderNewsletterBox(d){
+  return `<div class="newsletter-box"><h2>Your Weekly Scholarship Intelligence Brief</h2><p style="color:#718096">Personalized draft preview • ${new Date().toLocaleDateString()}</p><div class="news-brief-note">This is a generated preview based on your current curated feed, saved applications and profile. It is not an official decision or official university notice.</div>
+  <h3>1. The most relevant signals this week</h3><ul>${d.top.length?d.top.map(x=>`<li><b>${appEsc(x.item.title)}</b> — ${appEsc(x.item.summary||'Check the official source and update your application plan.')}</li>`).join(''):'<li>No active curated items yet. Add verified news sources in Supabase.</li>'}</ul>
+  <h3>2. The information hidden behind the information</h3><p>Scholarship and university news should not be read only as announcements. A new project, event, research center or deadline often signals what a university or funder currently values. Use these signals to refine your essays, program fit and mentor questions.</p>
+  <h3>3. Gaps ScholarsPath detected</h3><ul>${d.gaps.map(g=>`<li>${appEsc(g)}</li>`).join('')}</ul>
+  <h3>4. Action plan before next week</h3><ul><li>Update your Application Passport with stronger evidence.</li><li>Check official scholarship pages before acting on any deadline.</li><li>Ask a peer or mentor to review your fit with your target program.</li></ul></div>`;
+}
+function renderNewsletterPreview(){document.getElementById('newsletter-preview').innerHTML=renderNewsletterBox(newsletterDraft());}
+function renderNewsPreferenceBox(){
+  const p=newsPreferences||{};
+  const zones=['Global','Europe','United Kingdom','United States','Canada','South Korea','Japan','Australia','Germany','France','Netherlands','Switzerland','Nordics','Asia','Africa'];
+  const cats=['Scholarship deadline','University project','University event','Research opportunity','Admissions update','Visa / immigration','Student support','Hidden signal'];
+  const sel=(arr,v)=>newsArr(arr).map(newsNorm).includes(newsNorm(v))?'selected':'';
+  return `<div class="news-pref-box"><div style="font-size:18px;font-weight:500;margin-bottom:8px">Personalization</div><p style="font-size:12.5px;color:var(--text2);margin-bottom:14px">This controls what each student receives. It is not bulk news.</p>
+    <div class="fg"><label class="fl">Preferred zones</label><select class="fi" id="news-pref-zones" multiple size="6">${zones.map(z=>`<option ${sel(p.preferred_zones,z)}>${z}</option>`).join('')}</select></div>
+    <div class="fg"><label class="fl">Target universities</label><textarea class="fi" id="news-pref-unis" placeholder="One per line, e.g. Cambridge\nStanford\nMcGill">${appEsc(newsArr(p.preferred_universities).join('\n'))}</textarea></div>
+    <div class="fg"><label class="fl">News types</label><select class="fi" id="news-pref-cats" multiple size="5">${cats.map(c=>`<option ${sel(p.preferred_categories,c)}>${c}</option>`).join('')}</select></div>
+    <div class="fg"><label class="fl">Delivery rhythm</label><select class="fi" id="news-daily-enabled"><option value="true" ${p.daily_digest_enabled!==false?'selected':''}>Daily curated feed enabled</option><option value="false" ${p.daily_digest_enabled===false?'selected':''}>Pause daily feed</option></select></div>
+    <div class="fg"><label class="fl">Weekly newsletter</label><select class="fi" id="news-weekly-enabled"><option value="true" ${p.weekly_newsletter_enabled!==false?'selected':''}>Enabled — free weekly brief</option><option value="false" ${p.weekly_newsletter_enabled===false?'selected':''}>Paused</option></select></div>
+    <button class="btn btn-primary" onclick="saveNewsPreferences()">Save news preferences</button>
+  </div>`;
+}
+function selectedOptions(id){const el=document.getElementById(id);return el?Array.from(el.selectedOptions).map(o=>o.value||o.textContent):[];}
+async function saveNewsPreferences(){
+  const {data:{user}}=await sb.auth.getUser(); if(!user){alert('Please log in.');return;}
+  const payload={user_id:user.id,preferred_zones:selectedOptions('news-pref-zones'),preferred_universities:(document.getElementById('news-pref-unis').value||'').split('\n').map(x=>x.trim()).filter(Boolean),preferred_categories:selectedOptions('news-pref-cats'),preferred_fields:profile.field?[profile.field]:[],preferred_countries:profile.nat?[profile.nat]:[],daily_digest_enabled:document.getElementById('news-daily-enabled').value==='true',weekly_newsletter_enabled:document.getElementById('news-weekly-enabled').value==='true',updated_at:new Date().toISOString()};
+  const {error}=await sb.from('user_news_preferences').upsert(payload);
+  if(error){alert(error.message);return;} newsPreferences=payload; alert('News preferences saved.'); rNews();
+}
+async function saveNewsItem(id){
+  const {data:{user}}=await sb.auth.getUser(); if(!user){alert('Please log in.');return;}
+  if(String(id).startsWith('sch-')){alert('This is a scholarship-watch alert. Save the scholarship from Matches/Applications instead.');return;}
+  const {error}=await sb.from('user_news_interactions').upsert({user_id:user.id,news_item_id:Number(id),interaction_type:'saved'});
+  if(error){alert(error.message);return;} alert('Saved to your news list.');
+}
+function setNewsCat(c){newsCat=c;rNews();}
+function setNewsTab(t){newsTab=t;rNews();}
+async function rNews(){
+  const pg=document.getElementById('page-news');
+  pg.innerHTML=`${topbar('Curated <em>News</em>','Daily personalized intelligence + weekly ScholarsPath newsletter')}<div class="card">Loading your curated news...</div>`;
+  await appLoadApplications(false).catch(()=>{});
+  await loadCuratedNews(false).catch(()=>{});
+  pg.innerHTML=`${topbar('Curated <em>News</em>','Daily personalized intelligence + weekly ScholarsPath newsletter')}
+  <div class="alert alert-i"><span>✦</span><span><b>ScholarsPath is not a bulk news board.</b> Daily news is calibrated to each student’s profile, preferred zones, target universities, saved applications and field. The weekly newsletter compiles the week, detects missing signals and turns news into application strategy.</span></div>
+  <div class="tabs"><button class="tab ${newsTab==='daily'?'active':''}" onclick="setNewsTab('daily')">Daily curated feed</button><button class="tab ${newsTab==='weekly'?'active':''}" onclick="setNewsTab('weekly')">Weekly newsletter</button><button class="tab ${newsTab==='prefs'?'active':''}" onclick="setNewsTab('prefs')">Preferences</button></div>
+  ${newsTab==='daily'?renderDailyNews():newsTab==='weekly'?renderWeeklyNewsletter():`<div class="news-split"><div class="card"><div style="font-size:18px;font-weight:500;margin-bottom:10px">How curation works</div><p style="color:var(--text2);font-size:13px">ScholarsPath ranks news by relevance to the individual student: preferred regions, target universities, scholarship deadlines, field of study, degree level, saved applications, institutional events, university projects and hidden opportunity signals.</p><div class="sm-gaps"><div class="sm-gt">Recommended source types</div><ul><li>Official scholarship announcements</li><li>University admissions updates</li><li>Research/project announcements from target universities</li><li>University events, webinars and open days</li><li>Visa, housing and student-support updates</li><li>Signals that reveal what committees and universities currently value</li></ul></div></div><div>${renderNewsPreferenceBox()}</div></div>`}`;
+}
 // ── MENTAL HEALTH ─────────────────────────────────────────────────────────────
 function rMental(){
   const chatHtml=wConvo.map(m=>`<div><div style="font-size:10px;color:var(--text3);margin-bottom:2px;text-align:${m.from==='user'?'right':'left'}">${m.from==='ai'?'💙 Wellness Coach':'You'}</div>
