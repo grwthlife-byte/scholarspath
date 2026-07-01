@@ -496,7 +496,7 @@ textarea.fi{resize:vertical;min-height:80px}
 </div>
 
 <script>
-// ── SUPABASE CONFIG ───────────────────────────────────────────────────────────
+// ── SERVICE CONFIG ───────────────────────────────────────────────────────────
 const SUPABASE_URL='https://igvxyeuwmqjzdltojtcl.supabase.co';
 const SUPABASE_KEY='sb_publishable_bjsOScqoQ_1gzIKotVqFYw_1-st0jEb';
 let sb=null;
@@ -849,11 +849,11 @@ function rDash(){
   </div>
   <div class="grid2" style="margin-bottom:20px">
     <div class="card">
-      <div style="font-size:18px;font-weight:500;margin-bottom:14px">🎯 Scholarships from Database</div>
-      ${!liveScholarshipsLoaded?'<p style="color:var(--text3);font-size:13px">Loading Supabase scholarships...</p>':top.length?top.map(s=>`<div class="match-card" onclick="showPage('matches')">
+      <div style="font-size:18px;font-weight:500;margin-bottom:14px">🎯 Scholarship Opportunities</div>
+      ${!liveScholarshipsLoaded?'<p style="color:var(--text3);font-size:13px">Loading scholarship opportunities...</p>':top.length?top.map(s=>`<div class="match-card" onclick="showPage('matches')">
         <div class="score-box score-hi">DB<br><span style="font-size:10px">LIVE</span></div>
         <div style="flex:1"><div style="font-weight:500;font-size:14px;margin-bottom:3px">${spEsc(s.name)}</div>
-        <div style="font-size:12px;color:var(--text3);display:flex;gap:8px;flex-wrap:wrap"><span>${spEsc(s.country)}</span><span>⏰ ${spEsc(s.deadline)}</span><span style="color:var(--accent)">${spEsc(s.funding.split('—')[0])}</span></div></div></div>`).join(''):'<p style="color:var(--text3);font-size:13px">No active scholarship records yet. Add them in Supabase.</p>'}
+        <div style="font-size:12px;color:var(--text3);display:flex;gap:8px;flex-wrap:wrap"><span>${spEsc(s.country)}</span><span>⏰ ${spEsc(s.deadline)}</span><span style="color:var(--accent)">${spEsc(s.funding.split('—')[0])}</span></div></div></div>`).join(''):'<p style="color:var(--text3);font-size:13px">No active scholarship opportunities are available yet.</p>'}
     </div>
     <div class="card">
       <div style="font-size:18px;font-weight:500;margin-bottom:14px">📰 Latest News</div>
@@ -909,7 +909,7 @@ function setMF(f){mFilter=f;rMatchesLegacy();}
 const sm_DEVELOPING=new Set(["Gabon","Cameroon","Nigeria","Ghana","Senegal","Ivory Coast","Côte d'Ivoire","Mali","Burkina Faso","Niger","Chad","Central African Republic","Republic of the Congo","Democratic Republic of the Congo","Benin","Togo","Guinea","Guinea-Bissau","Sierra Leone","Liberia","Mauritania","Gambia","Kenya","Uganda","Tanzania","Rwanda","Burundi","Ethiopia","Somalia","South Sudan","Sudan","Eritrea","Djibouti","Madagascar","Mozambique","Malawi","Zambia","Zimbabwe","Angola","Namibia","Botswana","Lesotho","Eswatini","Comoros","Cape Verde","Equatorial Guinea","Egypt","Morocco","Algeria","Tunisia","Libya","South Africa","India","Pakistan","Bangladesh","Sri Lanka","Nepal","Bhutan","Myanmar","Cambodia","Laos","Vietnam","Philippines","Indonesia","Mongolia","Uzbekistan","Kyrgyzstan","Tajikistan","Afghanistan","Yemen","Syria","Iraq","Palestine","Bolivia","Honduras","Nicaragua","Guatemala","El Salvador","Haiti","Guyana","Papua New Guinea","Fiji","Samoa","Vanuatu","Solomon Islands","Timor-Leste"]);
 const sm_COMMONWEALTH=new Set(["Botswana","Cameroon","Eswatini","Gabon","Gambia","Ghana","Kenya","Lesotho","Malawi","Mauritius","Mozambique","Namibia","Nigeria","Rwanda","Sierra Leone","South Africa","Tanzania","Togo","Uganda","Zambia","Bangladesh","India","Pakistan","Sri Lanka","Maldives","Malaysia","Jamaica","Guyana","Fiji","Papua New Guinea","Samoa","Solomon Islands","Vanuatu"]);
 const sm_ENG_RANK={none:0,basic:1,intermediate:2,advanced:3,native:4};
-// ── LIVE SCHOLARSHIP DATA FROM SUPABASE ─────────────────────────────────────
+// ── LIVE SCHOLARSHIP DATA ─────────────────────────────────────
 let liveScholarships=[];
 let liveScholarshipsLoaded=false;
 let liveScholarshipsError='';
@@ -1059,7 +1059,7 @@ function spCheckNationalityEligibility(s,nationality){
   }
   var names=eligible.slice(0,3).map(spRuleName).join(', ');
   if(eligible.length>3) names+='…';
-  return {ok:false,detail:'Restricted to '+(names||'listed countries/groups'),gap:'Your nationality does not match the scholarship country rule stored in Supabase. Check the official eligible-country list.'};
+  return {ok:false,detail:'Restricted to '+(names||'listed countries/groups'),gap:'Your nationality does not match the published eligibility rules. Check the official eligible-country list.'};
 }
 function spDbScholarshipToMatch(row){
   var funding=[row.funding_type,row.funding_details].filter(Boolean).join(' — ');
@@ -1123,7 +1123,7 @@ async function spFetchScholarships(force){
   if(liveScholarshipsLoaded&&!force) return liveScholarships;
   liveScholarshipsError='';
   try{
-    if(!sb) throw new Error('Supabase is not ready yet.');
+    if(!sb) throw new Error('The service is not ready yet.');
     var res=await sb.from('scholarships').select('*').eq('is_active',true).order('deadline_date',{ascending:true});
     if(res.error) throw res.error;
     await spFetchCountryRules();
@@ -1152,7 +1152,7 @@ async function spFetchSavedScholarships(){
 }
 async function spSaveScholarship(dbId,btn){
   try{
-    if(!dbId){alert('Only Supabase scholarships can be saved.');return;}
+    if(!dbId){alert('This scholarship cannot be saved yet.');return;}
     var u=await sb.auth.getUser(); var user=(u&&u.data)?u.data.user:null;
     if(!user){alert('Please log in first.');return;}
     if(btn){btn.disabled=true;btn.textContent='Saving...';}
@@ -1335,7 +1335,7 @@ async function sm_run(skipSave){
   var p={name:(typeof profile!=='undefined'&&profile?profile.name:'')||'',nationality:sm_val('sm-nat'),age:parseInt(sm_val('sm-age'),10),currentDegree:sm_val('sm-deg'),gpaPct:sm_pct(gpaVal,gpaScale),field:sm_val('sm-field'),dest:sm_val('sm-dest'),schType:sm_val('sm-type'),english:sm_val('sm-eng')};
   if(!p.nationality||!p.currentDegree||!p.field||!p.english||isNaN(p.age)||p.gpaPct===null){err.textContent='Please complete nationality, age, degree, grade, field and English level.';return;}
   if(Object.keys(sm_ans).length<8){err.textContent='Please answer all 8 mindset questions.';return;}
-  err.textContent='Loading verified scholarships from Supabase...';
+  err.textContent='Loading verified scholarships...';
   await spFetchScholarships();
   err.textContent='';
   var answers=[];for(var i=0;i<8;i++)answers.push(sm_ans[i]);
@@ -1398,10 +1398,10 @@ function sm_renderResults(p,mind,reco){
   document.getElementById('sm-mindaxes').innerHTML=['a1','a2','a3','a4'].map(function(ax){var d=sm_AXIS_DEF[ax],pc=mind.pct[ax];return '<div class="sm-axis"><div class="sm-albl"><b>'+d.left+'</b><b>'+d.right+'</b></div><div class="sm-track"><div class="sm-dot" style="left:'+pc+'%"></div></div></div>';}).join('');
   document.getElementById('sm-recotext').innerHTML=reco.html;
   var source=spScholarshipPool();
-  if(!source.length){document.getElementById('sm-matches').innerHTML='<div class="card">No active scholarships found yet. Add scholarships in Supabase Table Editor first.</div>';return;}
+  if(!source.length){document.getElementById('sm-matches').innerHTML='<div class="card">No active scholarships found yet. Please check again later.</div>';return;}
   var results=source.map(function(s){return{s:s,r:sm_fit(p,s)};}).sort(function(a,b){if(a.r.eligible!==b.r.eligible)return a.r.eligible?-1:1;return b.r.score-a.r.score;});
   var ruleCount=Object.keys(spCountryRulesByScholarship).reduce(function(n,k){return n+(spCountryRulesByScholarship[k]||[]).length;},0);
-  var sourceNote=liveScholarships.length?'<div class="sm-note">Showing '+liveScholarships.length+' active scholarship(s) loaded from your Supabase database'+(ruleCount?' with '+ruleCount+' country-rule(s).':'')+'</div>':'<div class="sm-note">Supabase scholarships could not be loaded, so the app is showing internal fallback examples. Error: '+spEsc(liveScholarshipsError||'No active database records')+'</div>';
+  var sourceNote=liveScholarships.length?'<div class="sm-note">Showing '+liveScholarships.length+' active verified scholarship opportunity/opportunities'+(ruleCount?' with '+ruleCount+' country-rule(s).':'')+'</div>':'<div class="sm-note">Verified scholarship data is temporarily unavailable, so ScholarsPath is showing sample examples. Details: '+spEsc(liveScholarshipsError||'No active scholarship records')+'</div>';
   document.getElementById('sm-matches').innerHTML=sourceNote+results.map(function(x){
     var s=x.s,r=x.r;
     var eCls=!r.eligible?'sm-eb':(r.score>=60?'sm-eo':'sm-ew');
@@ -1413,7 +1413,7 @@ function sm_renderResults(p,mind,reco){
   }).join('');
 }
 
-// ── PEER COMMUNITY — LIVE SUPABASE VERSION ─────────────────────────────────
+// ── PEER COMMUNITY — LIVE VERSION ─────────────────────────────────
 let peerProfiles=[];
 let peerProfile=null;
 let peerProfilesLoaded=false;
@@ -1603,7 +1603,7 @@ async function blockPeer(){
     peerProfilesLoaded=false;
     await peerLoad(true);
     rPeers();
-    alert('User blocked. You can later unblock users directly from Supabase while we build the settings page.');
+    alert('User blocked. You will be able to manage blocked users from safety settings later.');
   }catch(e){
     alert('Could not block user: '+(e.message||e));
   }
@@ -1613,7 +1613,7 @@ async function peerLoad(force){
   if(peerProfilesLoaded&&!force) return peerProfiles;
   peerProfilesError='';
   try{
-    if(!sb) throw new Error('Supabase is not initialized.');
+    if(!sb) throw new Error('The service is not initialized.');
     await spFetchScholarships();
     var user=await peerCurrentUser();
     if(!user) throw new Error('Please log in first.');
@@ -1713,7 +1713,7 @@ function peerCard(p){
   '</div>';
 }
 function peerListHtml(){
-  if(!peerProfilesLoaded) return '<div class="card"><p style="color:var(--text3)">Loading real peer community from Supabase...</p></div>';
+  if(!peerProfilesLoaded) return '<div class="card"><p style="color:var(--text3)">Loading peer community...</p></div>';
   if(peerProfilesError) return '<div class="alert alert-w"><span>⚠</span><span>Peer community tables are not ready or not accessible yet: '+spEsc(peerProfilesError)+'</span></div>';
   if(!peerProfiles.length) return '<div class="card" style="text-align:center;color:var(--text3);padding:34px"><div style="font-size:42px;margin-bottom:8px">🤝</div><p>No other visible peer profiles yet.</p><p style="font-size:12px;margin-top:6px">Open discovery is ready. As soon as one more user creates a visible peer profile, both students can connect.</p></div>';
   var sorted=peerProfiles.slice().sort(function(a,b){
@@ -2030,7 +2030,7 @@ function rPeers(){
   const pg=document.getElementById('page-peers');
   if(!peerProfilesLoaded){
     pg.innerHTML=`${topbar('Peer <em>Community</em>','Find students by profile, not only by scholarship')}
-    <div class="alert alert-i"><span>✦</span><span>This is a real Supabase-backed community. At launch, all visible students can discover each other; academic profile only prioritizes the strongest matches. Safety controls are active: blocked users are hidden.</span></div>
+    <div class="alert alert-i"><span>✦</span><span>This is a verified ScholarsPath community. At launch, all visible students can discover each other; academic profile only prioritizes the strongest matches. Safety controls are active: blocked users are hidden.</span></div>
     <div class="card"><p style="color:var(--text3)">Loading peer community...</p></div>`;
     peerLoad(false).then(function(){rPeers();});
     return;
@@ -2068,7 +2068,7 @@ async function mentorLoad(force){
   if(mentorsLoaded&&!force) return;
   mentorsError='';
   try{
-    if(!sb) throw new Error('Supabase is not ready.');
+    if(!sb) throw new Error('The service is not ready.');
     var user=await mentorCurrentUser();
     var prof=await sb.from('mentor_profiles').select('*').eq('is_visible',true).order('created_at',{ascending:false});
     if(prof.error) throw prof.error;
@@ -2302,7 +2302,7 @@ async function appLoadApplications(force){
   if(applicationsLoaded&&!force)return;
   applicationsError='';
   try{
-    if(!sb)throw new Error('Supabase is not ready yet.');
+    if(!sb)throw new Error('The service is not ready yet.');
     var u=await sb.auth.getUser();var user=(u&&u.data)?u.data.user:null;if(!user)throw new Error('Please log in first.');
     var saved=await sb.from('saved_scholarships').select('*').eq('user_id',user.id).order('created_at',{ascending:false});
     if(saved.error)throw saved.error;
@@ -2370,7 +2370,7 @@ async function appSaveDeepInputs(id){
 async function appUploadDocument(trackerId,scholarshipId,docType,input){
   try{
     var file=input.files&&input.files[0];if(!file)return;
-    if(!sb)throw new Error('Supabase is not ready.');
+    if(!sb)throw new Error('The service is not ready.');
     var u=await sb.auth.getUser();var user=(u&&u.data)?u.data.user:null;if(!user)throw new Error('Please log in first.');
     var safe=(file.name||'document').replace(/[^a-zA-Z0-9._-]/g,'_').slice(-90);
     var path=user.id+'/'+trackerId+'/'+docType+'-'+Date.now()+'-'+safe;
@@ -2855,7 +2855,7 @@ function renderDailyNews(){
   return `<div class="news-split"><div>
     <div class="news-hero"><h2 style="font-size:22px;font-weight:400;margin-bottom:6px">Daily Curated Feed</h2><p style="color:var(--text2);font-size:13px">Every item is presented in a short format: two paragraphs, four sentences each, with a link to the official or detailed source.</p></div>
     <div class="tabs">${newsCategories().map(c=>`<button class="tab ${newsCat===c?'active':''}" onclick="setNewsCat('${appEsc(c)}')">${appEsc(c)}</button>`).join('')}</div>
-    ${list.length?list.map(renderNewsCard).join(''):`<div class="news-empty"><div style="font-size:34px;margin-bottom:8px">📰</div><b>No curated news yet.</b><br>Add verified items in Supabase or save scholarships so ScholarsPath can create scholarship-watch alerts.</div>`}
+    ${list.length?list.map(renderNewsCard).join(''):`<div class="news-empty"><div style="font-size:34px;margin-bottom:8px">📰</div><b>No curated news yet.</b><br>Save scholarships or check back as verified news items are added.</div>`}
   </div><div>${renderNewsPreferenceBox()}</div></div>`;
 }
 function newsletterDraft(){
@@ -2881,7 +2881,7 @@ function renderWeeklyNewsletter(){
     <div id="newsletter-preview" style="margin-top:18px">${latest?renderNewsletterStored(latest):renderNewsletterBox(d)}</div>`;
 }
 function renderNewsletterStored(n){
-  if(n&&n.body){return `<div class="newsletter-box"><h2>${appEsc(n.title||'ScholarsPath Weekly Brief')}</h2><p style="color:#718096">Issue date: ${newsDate(n.issue_date)}</p><div class="news-brief-note">Stored newsletter from Supabase. Future AI-generated issues should follow the ScholarsPath rule: six paragraphs of five sentences each.</div><div style="white-space:pre-wrap;font-size:13px;line-height:1.65;color:#4a5568">${appEsc(n.body||n.summary||'')}</div></div>`;}
+  if(n&&n.body){return `<div class="newsletter-box"><h2>${appEsc(n.title||'ScholarsPath Weekly Brief')}</h2><p style="color:#718096">Issue date: ${newsDate(n.issue_date)}</p><div class="news-brief-note">ScholarsPath weekly intelligence brief. Future AI-generated issues should follow the ScholarsPath rule: six paragraphs of five sentences each.</div><div style="white-space:pre-wrap;font-size:13px;line-height:1.65;color:#4a5568">${appEsc(n.body||n.summary||'')}</div></div>`;}
   return renderNewsletterBox(newsletterDraft());
 }
 function newsletterParagraph(sentences){return newsParagraph(sentences.map(x=>newsSentence(x)),5);}
@@ -2979,11 +2979,11 @@ function rNews(){
     console.warn('News body render failed; using safe fallback',e);
     let fallback=[];
     try{ fallback=newsActiveScholarshipAlerts(); }catch(inner){ console.warn('News fallback failed',inner); fallback=[]; }
-    body=`<div class="card"><div style="font-size:18px;font-weight:500;margin-bottom:8px">Scholarship-watch feed</div>${fallback.length?fallback.map(function(n){return renderNewsCard({item:n,meta:{score:70,reasons:['active scholarship in your database']}});}).join(''):'<p style="color:var(--text2)">No curated news yet. Add active scholarships or curated news records in Supabase.</p>'}</div>`;
+    body=`<div class="card"><div style="font-size:18px;font-weight:500;margin-bottom:8px">Scholarship-watch feed</div>${fallback.length?fallback.map(function(n){return renderNewsCard({item:n,meta:{score:70,reasons:['active scholarship in your profile']}});}).join(''):'<p style="color:var(--text2)">No curated news yet. Save scholarships or check back when new verified updates are available.</p>'}</div>`;
   }
   pg.innerHTML=`${topbar('Curated <em>News</em>','Daily personalized intelligence + weekly ScholarsPath newsletter')}
     <div class="alert alert-i"><span>✦</span><span><b>ScholarsPath is not a bulk news board.</b> Daily news is calibrated to each student’s profile, preferred zones, target universities, saved applications and field. The weekly newsletter compiles the week, detects missing signals and turns news into application strategy.</span></div>
-    ${newsLoadingNow?'<div class="alert alert-w"><span>⏳</span><span>Updating news data in the background. The page remains usable while ScholarsPath checks Supabase.</span></div>':''}
+    ${newsLoadingNow?'<div class="alert alert-w"><span>⏳</span><span>Updating news in the background. The page remains usable while ScholarsPath checks for new updates.</span></div>':''}
     <div class="tabs"><button class="tab ${newsTab==='daily'?'active':''}" onclick="setNewsTab('daily')">Daily curated feed</button><button class="tab ${newsTab==='weekly'?'active':''}" onclick="setNewsTab('weekly')">Weekly newsletter</button><button class="tab ${newsTab==='prefs'?'active':''}" onclick="setNewsTab('prefs')">Preferences</button></div>
     ${body}`;
 
@@ -3071,7 +3071,7 @@ function rTips(){
   <div class="card" style="margin-top:20px;background:linear-gradient(135deg,rgba(79,209,197,.06),rgba(159,122,234,.06))">
     <div style="font-size:18px;font-weight:500;margin-bottom:4px">📥 Download the Complete Guide</div>
     <p style="color:var(--text2);font-size:13px;margin-bottom:14px">Get our 47-page scholarship preparation handbook — free for ScholarsPath members.</p>
-    <button class="btn btn-primary" onclick="alert('Download feature — connect a backend to enable PDF generation!')">Download Full Guide (PDF)</button>
+    <button class="btn btn-primary" onclick="alert('Download feature coming soon — PDF generation will be enabled in a future update.')">Download Full Guide (PDF)</button>
   </div>`;
 }
 
