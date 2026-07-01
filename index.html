@@ -297,6 +297,22 @@ textarea.fi{resize:vertical;min-height:80px}
 .app-essay-box{background:#f7fafc;border-radius:8px;padding:16px;font-size:13px;line-height:1.75;color:#4a5568;border-left:3px solid #4fd1c5}
 .app-analysis-note{background:#edfdfd;border:1px solid #b2f5ea;border-radius:8px;padding:12px;font-size:12.5px;line-height:1.6;color:#285e61;margin:10px 0}
 
+.app-passport-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+@media(max-width:760px){.app-passport-grid{grid-template-columns:1fr}}
+.app-transfer-field{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:15px;margin-bottom:12px}
+.app-transfer-head{display:flex;justify-content:space-between;gap:12px;align-items:flex-start;flex-wrap:wrap;margin-bottom:8px}
+.app-transfer-label{font-size:12px;color:var(--accent);font-weight:700;letter-spacing:.5px;text-transform:uppercase}
+.app-transfer-value{background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:11px 12px;color:var(--text);font-size:13.5px;line-height:1.6;white-space:pre-wrap;margin-top:8px}
+.app-missing{background:rgba(246,173,85,.08);border:1px solid rgba(246,173,85,.28);border-radius:12px;padding:12px 14px;color:var(--text2);font-size:13px;margin-bottom:14px}
+.app-missing b{color:var(--accent2)}
+.app-copy-btn{padding:6px 10px;font-size:12px}
+.app-passport-score{display:inline-flex;align-items:center;gap:8px;background:rgba(79,209,197,.08);border:1px solid rgba(79,209,197,.2);border-radius:20px;padding:6px 12px;font-size:12px;color:var(--accent)}
+.app-transfer-steps{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin:14px 0}
+@media(max-width:760px){.app-transfer-steps{grid-template-columns:1fr 1fr}}
+.app-transfer-step{background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:10px;font-size:12px;color:var(--text2)}
+.app-transfer-step b{display:block;color:var(--text);font-size:12px;margin-bottom:3px}
+
+
 
 </style>
 </head>
@@ -686,6 +702,9 @@ let appTrackers=[];
 let appSavedRows=[];
 let appScholarshipMap={};
 let appDocumentMap={};
+let appPassport=null;
+let appTransferPacks=[];
+let appTransferPackMap={};
 let applicationsLoaded=false;
 let applicationsError='';
 
@@ -2241,6 +2260,14 @@ async function appLoadApplications(force){
       var docs=await sb.from('application_documents').select('*').in('application_tracker_id',trIds).order('uploaded_at',{ascending:false});
       if(!docs.error){(docs.data||[]).forEach(function(d){var k=String(d.application_tracker_id);if(!appDocumentMap[k])appDocumentMap[k]=[];appDocumentMap[k].push(d);});}
     }
+    appPassport=null;
+    var pass=await sb.from('application_passports').select('*').eq('user_id',user.id).maybeSingle();
+    if(!pass.error)appPassport=pass.data||null;
+    appTransferPacks=[];appTransferPackMap={};
+    if(trIds.length){
+      var packs=await sb.from('application_transfer_packs').select('*').in('application_tracker_id',trIds).order('updated_at',{ascending:false});
+      if(!packs.error){appTransferPacks=packs.data||[];(appTransferPacks||[]).forEach(function(p){appTransferPackMap[String(p.application_tracker_id)]=p;});}
+    }
     applicationsLoaded=true;
   }catch(e){applicationsLoaded=true;applicationsError=e.message||String(e);console.warn('Application load failed',e);}
 }
@@ -2299,15 +2326,149 @@ function rPreApp(){
     <div class="card"><div style="color:var(--text2)">Loading your applications...</div></div>`;
     appLoadApplications(false).then(rPreApp);return;
   }
-  pg.innerHTML=`${topbar('My <em>Applications</em>','Turn saved scholarships into complete international application files')}
-  <div class="alert alert-i"><span>✦</span><span>Each saved scholarship has an explicit application status, document upload space, checklist, notes and a deep pre-application builder.</span></div>
+  pg.innerHTML=`${topbar('My <em>Applications</em>','Prepare once, transfer intelligently into official scholarship and university portals')}
+  <div class="alert alert-i"><span>✦</span><span>ScholarsPath is not a second official application portal. It is your Application Passport and Transfer Pack system: prepare once, then copy, export and submit through the official university or scholarship website.</span></div>
   <div class="app-tabs">
     <button class="app-tab ${appView==='tracker'?'active':''}" onclick="appSetView('tracker')">Application Tracker</button>
-    <button class="app-tab ${appView==='preapp'?'active':''}" onclick="appSetView('preapp')">International Pre-Application Form</button>
+    <button class="app-tab ${appView==='passport'?'active':''}" onclick="appSetView('passport')">Application Passport</button>
+    <button class="app-tab ${appView==='transfer'?'active':''}" onclick="appSetView('transfer')">Transfer Pack</button>
+    <button class="app-tab ${appView==='preapp'?'active':''}" onclick="appSetView('preapp')">Essay & Full Draft</button>
   </div>
   ${applicationsError?`<div class="alert alert-w"><span>⚠️</span><span>${appEsc(applicationsError)}</span></div>`:''}
-  ${appView==='tracker'?appTrackerHtml():appPreAppHtml()}`;
+  ${appViewHtml()}`;
 }
+function appViewHtml(){
+  if(appView==='tracker')return appTrackerHtml();
+  if(appView==='passport')return appPassportHtml();
+  if(appView==='transfer')return appTransferHtml();
+  return appPreAppHtml();
+}
+
+function appPassportCompleteness(){
+  var p=appPassport||{};
+  var keys=['legal_name','date_of_birth','phone','address','passport_number','academic_history','achievements','leadership_experience','research_interests','work_experience','career_plan','financial_need','recommender_1','recommender_2'];
+  var filled=keys.filter(function(k){return (p[k]||'').toString().trim();}).length;
+  return Math.round((filled/keys.length)*100);
+}
+function appPassportVal(k,fallback){return appEsc((appPassport&&appPassport[k])||fallback||'');}
+function appPassportHtml(){
+  var p=appPassport||{};
+  var score=appPassportCompleteness();
+  return `<div class="card" style="max-width:1080px">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap;margin-bottom:16px">
+      <div><div class="sec-title">Application Passport</div><div class="sec-sub">One reusable student data vault for all scholarship and university portals</div></div>
+      <span class="app-passport-score">Passport completeness: <b>${score}%</b></span>
+    </div>
+    <div class="alert alert-i"><span>✦</span><span>Fill this once. Transfer Packs will reuse it to prepare copy-ready answers for official application portals. This prevents double work.</span></div>
+    <div class="app-passport-grid">
+      <div class="fg"><label class="fl">Legal name as on passport</label><input class="fi" id="pass-legal_name" value="${appPassportVal('legal_name',profile.name)}"></div>
+      <div class="fg"><label class="fl">Preferred name</label><input class="fi" id="pass-preferred_name" value="${appPassportVal('preferred_name',profile.name)}"></div>
+      <div class="fg"><label class="fl">Date of birth</label><input class="fi" id="pass-date_of_birth" type="date" value="${appPassportVal('date_of_birth')}"></div>
+      <div class="fg"><label class="fl">Phone / WhatsApp</label><input class="fi" id="pass-phone" value="${appPassportVal('phone')}"></div>
+      <div class="fg"><label class="fl">Passport number / ID reference</label><input class="fi" id="pass-passport_number" value="${appPassportVal('passport_number')}"></div>
+      <div class="fg"><label class="fl">Current institution / employer</label><input class="fi" id="pass-current_institution" value="${appPassportVal('current_institution')}"></div>
+      <div class="fg" style="grid-column:1/-1"><label class="fl">Permanent address</label><input class="fi" id="pass-address" value="${appPassportVal('address')}"></div>
+      <div class="fg"><label class="fl">Academic history</label><textarea class="fi" id="pass-academic_history" placeholder="Degrees, institutions, dates, grades, thesis/project titles.">${appPassportVal('academic_history',profile.deg+' — '+profile.field+' — '+profile.gpa)}</textarea></div>
+      <div class="fg"><label class="fl">Achievements / awards / publications</label><textarea class="fi" id="pass-achievements" placeholder="Use verified evidence only. No invented achievements.">${appPassportVal('achievements')}</textarea></div>
+      <div class="fg"><label class="fl">Leadership and service experience</label><textarea class="fi" id="pass-leadership_experience" placeholder="Clubs, associations, volunteering, mentoring, church/community service, work leadership.">${appPassportVal('leadership_experience')}</textarea></div>
+      <div class="fg"><label class="fl">Research interests / study interests</label><textarea class="fi" id="pass-research_interests" placeholder="Academic or professional questions you want to study.">${appPassportVal('research_interests')}</textarea></div>
+      <div class="fg"><label class="fl">Work / internship experience</label><textarea class="fi" id="pass-work_experience" placeholder="Roles, responsibilities, results, dates.">${appPassportVal('work_experience')}</textarea></div>
+      <div class="fg"><label class="fl">Career plan and return impact</label><textarea class="fi" id="pass-career_plan" placeholder="10-year plan, country/sector impact, realistic next steps.">${appPassportVal('career_plan',profile.goal)}</textarea></div>
+      <div class="fg"><label class="fl">Financial need / funding context</label><textarea class="fi" id="pass-financial_need" placeholder="Real financial context, why scholarship funding matters, what you can/cannot cover.">${appPassportVal('financial_need')}</textarea></div>
+      <div class="fg"><label class="fl">CV summary</label><textarea class="fi" id="pass-cv_summary" placeholder="Short academic/professional summary for CV and application forms.">${appPassportVal('cv_summary')}</textarea></div>
+      <div class="fg"><label class="fl">Recommender 1</label><textarea class="fi" id="pass-recommender_1" placeholder="Name, title, institution, email, relationship, what they can confirm.">${appPassportVal('recommender_1')}</textarea></div>
+      <div class="fg"><label class="fl">Recommender 2</label><textarea class="fi" id="pass-recommender_2" placeholder="Name, title, institution, email, relationship, what they can confirm.">${appPassportVal('recommender_2')}</textarea></div>
+    </div>
+    <button class="btn btn-primary" onclick="appSavePassport()">Save Application Passport</button>
+  </div>`;
+}
+function appPassportRead(){
+  var keys=['legal_name','preferred_name','date_of_birth','phone','address','passport_number','current_institution','academic_history','achievements','leadership_experience','research_interests','work_experience','career_plan','financial_need','cv_summary','recommender_1','recommender_2'];
+  var o={};keys.forEach(function(k){var el=document.getElementById('pass-'+k);o[k]=el?el.value.trim():'';});return o;
+}
+async function appSavePassport(){
+  try{
+    var u=await sb.auth.getUser();var user=(u&&u.data)?u.data.user:null;if(!user)throw new Error('Please log in first.');
+    var p=appPassportRead();p.user_id=user.id;p.email=profile.email||user.email;p.nationality=profile.nat||'';p.degree_level=profile.deg||'';p.field_of_study=profile.field||'';p.gpa=profile.gpa||'';p.english_level=profile.eng||'';
+    var res=await sb.from('application_passports').upsert(p,{onConflict:'user_id'}).select().maybeSingle();
+    if(res.error)throw res.error;appPassport=res.data||p;alert('Application Passport saved.');rPreApp();
+  }catch(e){alert('Could not save Application Passport: '+(e.message||e));}
+}
+function appRequiredPassportMissing(){
+  var p=appPassport||{};
+  var req=[['legal_name','Legal name'],['date_of_birth','Date of birth'],['passport_number','Passport / ID'],['address','Permanent address'],['academic_history','Academic history'],['achievements','Achievements / evidence'],['leadership_experience','Leadership or service'],['career_plan','Career / impact plan'],['financial_need','Financial need'],['recommender_1','Recommender 1']];
+  return req.filter(function(x){return !((p[x[0]]||'').toString().trim());}).map(function(x){return x[1];});
+}
+function appTransferHtml(){
+  if(!appTrackers.length){return `<div class="card" style="max-width:620px"><div style="font-size:42px;margin-bottom:12px">🧭</div><h3 style="font-size:20px;font-weight:400;margin-bottom:8px">Save a scholarship first</h3><p style="color:var(--text2);font-size:13px;margin-bottom:16px">Transfer Packs are generated from tracked applications.</p><button class="btn btn-primary" onclick="showPage('matches')">Go to Matches →</button></div>`;}
+  var missing=appRequiredPassportMissing();
+  return `<div class="card" style="max-width:1080px">
+    <div style="font-size:44px;margin-bottom:12px">🧭</div>
+    <h3 style="font-size:20px;font-weight:400;margin-bottom:8px">Application Transfer Pack</h3>
+    <p style="color:var(--text2);font-size:13px;margin-bottom:14px">Choose a tracked scholarship. ScholarsPath maps your Application Passport and application analysis into copy-ready official portal answers.</p>
+    <div class="app-transfer-steps"><div class="app-transfer-step"><b>1. Prepare</b>Complete your Passport once.</div><div class="app-transfer-step"><b>2. Map</b>Match official portal fields.</div><div class="app-transfer-step"><b>3. Copy / export</b>Transfer answers into the official portal.</div><div class="app-transfer-step"><b>4. Submit</b>You review and submit yourself.</div></div>
+    ${missing.length?`<div class="app-missing"><b>Missing Passport fields:</b> ${missing.map(appEsc).join(', ')}. You can still generate a pack, but complete these before submission.</div>`:''}
+    <div class="fg"><label class="fl">Tracked Application</label><select class="fi" id="tp-tracker" onchange="appRenderTransferPack()"><option value="">Choose application</option>${appTrackers.map(function(t){var pack=appTransferPackMap[String(t.id)];return `<option value="${Number(t.id)}">${appEsc(appScholarName(t.scholarship_id))}${pack?' — saved pack':''}</option>`;}).join('')}</select></div>
+    <div id="tp-output" class="alert alert-i"><span>✦</span><span>Select an application to generate a copy-ready transfer pack.</span></div>
+  </div>`;
+}
+function appBuildTransferFields(t){
+  var s=appScholarshipMap[String(t.scholarship_id)]||{};
+  var p=appPassport||{};
+  function first(){for(var i=0;i<arguments.length;i++){var v=arguments[i];if(v&&String(v).trim())return String(v).trim();}return '';}
+  var uni=first(t.target_university,s.provider);
+  var prog=first(t.target_program,'[Select exact program/department from official portal]');
+  var story=first(t.applicant_story,p.achievements,profile.goal,'[Add personal evidence]');
+  var career=first(t.career_impact_plan,p.career_plan,profile.goal,'[Add 10-year impact plan]');
+  var committee=first(t.committee_priorities,s.eligibility_summary,'[Add committee priorities from official page]');
+  var univ=first(t.university_profile,s.description,'[Add verified university/program profile]');
+  var statement=`I am applying to ${uni} for ${prog} through ${s.name||'this scholarship'} because the program aligns with my academic background in ${profile.field||'[field]'} and my long-term impact plan. ${story}\n\nMy preparation is grounded in evidence: ${first(t.academic_strengths,p.academic_history,'[academic strengths]')}. The scholarship committee appears to value ${committee}, and my application is designed to respond to those expectations without exaggeration.\n\nAt ${uni}, I intend to use the program strengths — ${univ} — to build the knowledge and network required for my next stage. After the program, my goal is: ${career}.`;
+  return [
+    {section:'Identity',label:'Full legal name',value:first(p.legal_name,profile.name,'[Complete Application Passport]'),guide:'Copy into Applicant Name / Legal Name field.'},
+    {section:'Identity',label:'Nationality / citizenship',value:first(profile.nat,p.nationality,'[Complete nationality]'),guide:'Use the same country wording as your passport and official portal.'},
+    {section:'Identity',label:'Passport / ID',value:first(p.passport_number,'[Complete Application Passport]'),guide:'Never invent ID details. Verify against your passport.'},
+    {section:'Academic profile',label:'Current / highest degree',value:first(profile.deg,'[Complete degree level]'),guide:'Map to degree-level dropdown in the official portal.'},
+    {section:'Academic profile',label:'Field of study',value:first(profile.field,'[Complete field]'),guide:'If the portal has narrower categories, choose the closest official department.'},
+    {section:'Academic profile',label:'Academic history summary',value:first(p.academic_history,profile.gpa,'[Complete academic history]'),guide:'Use this for education-history or academic-background fields.'},
+    {section:'Program fit',label:'Target university / institution',value:uni||'[Complete target university]',guide:'Verify the official institution name before copying.'},
+    {section:'Program fit',label:'Target program / department',value:prog,guide:'Use the exact program title from the university website.'},
+    {section:'Program fit',label:'Why this university/program?',value:`${uni} is relevant to my plan because ${univ}. I am especially interested in how this program can strengthen my preparation in ${profile.field||'[field]'} and support my future contribution: ${career}.`,guide:'Use for “Why this university?” fields. Add faculty/course names manually when required.'},
+    {section:'Scholarship fit',label:'Why this scholarship?',value:`${s.name||'This scholarship'} fits my profile because it supports ${first(s.degree_levels&&s.degree_levels.join(', '),profile.deg)} study in ${first(s.host_country,s.country,'the host country')} and is aligned with my financial and academic need. ${committee}`,guide:'Use for scholarship motivation fields.'},
+    {section:'Essay',label:'Personal statement / SOP draft',value:statement,guide:'Paste only after personal review. Remove generic language and add concrete evidence.'},
+    {section:'Essay',label:'Leadership / community impact',value:first(t.leadership_impact,p.leadership_experience,'[Add leadership/community evidence]'),guide:'Use for leadership, service, extracurricular and impact questions.'},
+    {section:'Essay',label:'Career goals / return impact',value:career,guide:'Use for future plan, return contribution, and development impact fields.'},
+    {section:'Funding',label:'Financial need / funding fit',value:first(t.financial_need_summary,p.financial_need,'[Add financial need summary]'),guide:'Use for funding-need sections. Keep it factual, dignified and specific.'},
+    {section:'Recommendations',label:'Recommender 1',value:first(p.recommender_1,'[Add recommender 1]'),guide:'Copy into recommender details if the portal requests names/emails.'},
+    {section:'Recommendations',label:'Recommender 2',value:first(p.recommender_2,'[Add recommender 2]'),guide:'Check if the official portal requires one, two or three recommenders.'},
+    {section:'Documents',label:'Document checklist',value:appDocTypes().map(function(d){var uploaded=appDocsForTracker(t.id).some(function(x){return x.document_type===d.key;});return (uploaded?'✓ ':'□ ')+d.label;}).join('\n'),guide:'Use this before opening the official portal so you upload complete files.'}
+  ];
+}
+function appTransferMissingFromFields(fields){return fields.filter(function(f){return /\[.*?\]/.test(f.value||'');}).map(function(f){return f.label;});}
+function appRenderTransferPack(){
+  var id=Number((document.getElementById('tp-tracker')||{}).value||0);var t=appTrackers.find(function(x){return Number(x.id)===id;});var box=document.getElementById('tp-output');if(!box||!t)return;
+  var s=appScholarshipMap[String(t.scholarship_id)]||{};
+  var fields=appBuildTransferFields(t);var missing=appTransferMissingFromFields(fields);
+  box.className='';
+  box.innerHTML=`<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap;margin-bottom:14px">
+    <div><div class="sec-title">${appEsc(s.name||appScholarName(t.scholarship_id))}</div><div class="sec-sub">Copy-ready transfer pack for the official application portal</div></div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn btn-primary" onclick="appSaveTransferPack(${Number(t.id)})">Save Transfer Pack</button>${s.official_url?`<a class="btn btn-outline" href="${appEsc(s.official_url)}" target="_blank" rel="noopener">Open official portal</a>`:''}</div>
+  </div>
+  <div class="alert alert-w"><span>⚠️</span><span>ScholarsPath prepares answers. The student must review, adapt, paste into the official portal and submit personally. Never submit without checking official requirements.</span></div>
+  ${missing.length?`<div class="app-missing"><b>Fields needing student review:</b> ${missing.map(appEsc).join(', ')}</div>`:''}
+  ${fields.map(function(f,i){return `<div class="app-transfer-field"><div class="app-transfer-head"><div><div class="app-transfer-label">${appEsc(f.section)}</div><div style="font-size:16px;font-weight:650">${appEsc(f.label)}</div><div class="sec-sub" style="margin-top:3px">${appEsc(f.guide)}</div></div><button class="btn btn-outline app-copy-btn" onclick="appCopyText('tp-val-${id}-${i}')">Copy</button></div><div class="app-transfer-value" id="tp-val-${id}-${i}">${appEsc(f.value||'')}</div></div>`;}).join('')}`;
+}
+function appCopyText(id){var el=document.getElementById(id);var text=el?el.innerText:'';if(!text)return;if(navigator.clipboard)navigator.clipboard.writeText(text).then(function(){alert('Copied.');});else alert('Select and copy manually.');}
+async function appSaveTransferPack(trackerId){
+  try{
+    var u=await sb.auth.getUser();var user=(u&&u.data)?u.data.user:null;if(!user)throw new Error('Please log in first.');
+    var t=appTrackers.find(function(x){return Number(x.id)===Number(trackerId);});if(!t)throw new Error('Application not found.');
+    var fields=appBuildTransferFields(t);var missing=appTransferMissingFromFields(fields);var s=appScholarshipMap[String(t.scholarship_id)]||{};
+    var payload={generated_at:new Date().toISOString(),scholarship_name:s.name||appScholarName(t.scholarship_id),official_url:s.official_url||'',fields:fields};
+    var res=await sb.from('application_transfer_packs').upsert({user_id:user.id,application_tracker_id:Number(t.id),scholarship_id:Number(t.scholarship_id),target_university:t.target_university||s.provider||'',target_program:t.target_program||'',pack_json:payload,missing_fields:missing,version:1},{onConflict:'application_tracker_id'}).select().maybeSingle();
+    if(res.error)throw res.error;appTransferPackMap[String(t.id)]=res.data;alert('Transfer Pack saved.');
+  }catch(e){alert('Could not save Transfer Pack: '+(e.message||e));}
+}
+
 function appTrackerHtml(){
   if(!appTrackers.length){
     return `<div class="card" style="max-width:620px">
@@ -2340,7 +2501,8 @@ function appTrackerHtml(){
             </select>
           </div>
           <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px">
-            <button class="btn btn-outline" onclick="genPreAppFromTracker(${Number(t.id)})">📄 Draft international form</button>
+            <button class="btn btn-outline" onclick="appSetView('transfer');setTimeout(function(){var el=document.getElementById('tp-tracker');if(el){el.value='${Number(t.id)}';appRenderTransferPack();}},0)">🧭 Prepare official portal pack</button>
+            <button class="btn btn-outline" onclick="genPreAppFromTracker(${Number(t.id)})">📄 Draft essay/full file</button>
             ${official&&official!=='#'?`<a class="btn btn-outline" href="${appEsc(official)}" target="_blank" rel="noopener">Official page</a>`:''}
           </div>
         </div>
@@ -2374,8 +2536,8 @@ function appPreAppHtml(){
   if(!appTrackers.length){return `<div class="card" style="max-width:620px"><div style="font-size:42px;margin-bottom:12px">📄</div><h3 style="font-size:20px;font-weight:400;margin-bottom:8px">Save a scholarship first</h3><p style="color:var(--text2);font-size:13px;margin-bottom:16px">The international pre-application form is built from a tracked application, because it needs the scholarship details, your profile and uploaded documents.</p><button class="btn btn-primary" onclick="showPage('matches')">Go to Matches →</button></div>`;}
   return `<div class="card" style="max-width:980px">
     <div style="font-size:44px;margin-bottom:12px">🌍</div>
-    <h3 style="font-size:20px;font-weight:400;margin-bottom:8px">International Standard Pre-Application Builder</h3>
-    <p style="color:var(--text2);font-size:13px;margin-bottom:18px">This builder follows the structure commonly expected by highly selective U.S. and European universities: identity, citizenship, academic record, program fit, documents, recommendations, essays, funding, declarations and upload spaces.</p>
+    <h3 style="font-size:20px;font-weight:400;margin-bottom:8px">Essay & Full Application Draft Builder</h3>
+    <p style="color:var(--text2);font-size:13px;margin-bottom:18px">This builder creates a deeper essay and full application draft from your Application Passport, scholarship details, university profile and personal evidence. Use the Transfer Pack for official portal copy/paste fields.</p>
     <div class="fg"><label class="fl">Tracked Application</label><select class="fi" id="pa-tracker" onchange="appRenderDeepForm()"><option value="">Choose application</option>${appTrackers.map(function(t){return `<option value="${Number(t.id)}">${appEsc(appScholarName(t.scholarship_id))}</option>`;}).join('')}</select></div>
     <div id="pa-deep-form" class="alert alert-i"><span>✦</span><span>Select an application. Then complete the university and personal analysis fields before generating the draft.</span></div>
   </div>`;
