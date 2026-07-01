@@ -307,6 +307,24 @@ textarea.fi{resize:vertical;min-height:80px}
 .app-missing b{color:var(--accent2)}
 .app-copy-btn{padding:6px 10px;font-size:12px}
 .app-passport-score{display:inline-flex;align-items:center;gap:8px;background:rgba(79,209,197,.08);border:1px solid rgba(79,209,197,.2);border-radius:20px;padding:6px 12px;font-size:12px;color:var(--accent)}
+
+.app-score-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;min-width:330px;max-width:470px}
+@media(max-width:900px){.app-score-grid{grid-template-columns:1fr;width:100%;max-width:none}}
+.app-score-box{background:var(--bg3);border:1px solid var(--border);border-radius:14px;padding:12px;text-align:center;min-width:105px}
+.app-score-label{font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.55px;line-height:1.25;margin-bottom:7px;font-weight:700}
+.app-score-num{font-size:26px;font-weight:850;line-height:1;color:var(--accent)}
+.app-score-num.warn{color:var(--accent2)}
+.app-score-num.good{color:#5fd38a}
+.app-score-num.bad{color:#fc7a6e}
+.app-score-sub{font-size:11px;color:var(--text3);margin-top:5px;line-height:1.25}
+.app-assessment{background:rgba(79,209,197,.06);border:1px solid rgba(79,209,197,.16);border-radius:12px;padding:12px 14px;margin-top:12px;font-size:13px;color:var(--text2)}
+.app-assessment-title{font-size:12px;color:var(--accent);text-transform:uppercase;letter-spacing:.55px;font-weight:800;margin-bottom:6px}
+.app-assessment-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:7px;margin-top:10px}
+@media(max-width:760px){.app-assessment-grid{grid-template-columns:1fr 1fr}}
+.app-assessment-part{background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:7px 8px}
+.app-assessment-part b{display:block;color:var(--text);font-size:12px;margin-bottom:2px}
+.app-assessment-part span{font-size:11px;color:var(--text3)}
+.app-prob-note{background:rgba(246,173,85,.08);border:1px solid rgba(246,173,85,.25);border-radius:10px;padding:10px 12px;color:var(--text2);font-size:12.5px;line-height:1.5;margin:10px 0}
 .app-transfer-steps{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin:14px 0}
 @media(max-width:760px){.app-transfer-steps{grid-template-columns:1fr 1fr}}
 .app-transfer-step{background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:10px;font-size:12px;color:var(--text2)}
@@ -2212,6 +2230,29 @@ function appSetView(v){appView=v;rPreApp();}
 function appDateLabel(v){if(!v)return 'Deadline varies';try{return new Date(v+'T00:00:00').toLocaleDateString();}catch(e){return v||'Deadline varies';}}
 function appEsc(v){return spEsc(v);}
 function appProgress(t){var keys=['documents_ready','personal_statement_ready','recommendation_letters_ready','transcript_ready','language_test_ready'];var done=keys.filter(function(k){return !!t[k];}).length;return Math.round((done/keys.length)*100);}
+
+function appClamp(n,min,max){n=Number(n);if(isNaN(n))n=0;return Math.max(min,Math.min(max,n));}
+function appTextScore(v){var n=((v||'')+'').trim().length;if(!n)return 0;if(n<60)return 35;if(n<160)return 60;if(n<350)return 78;return 100;}
+function appGpaPercent(g){var x=((g||profile.gpa||'')+'').toLowerCase();if(x.includes('3.8')||x.includes('excellent'))return 95;if(x.includes('3.5')||x.includes('very good'))return 88;if(x.includes('3.0')||x.includes('good'))return 80;if(x.includes('2.5')||x.includes('average'))return 70;var m=x.match(/(\d+(?:\.\d+)?)/);if(m){var v=parseFloat(m[1]);if(v<=4.3)return appClamp((v/4)*100,0,100);if(v<=100)return v;}return 75;}
+function appDegreeCode(v){v=((v||profile.deg||'')+'').toLowerCase();if(v.includes('high school'))return 'highschool';if(v.includes('bachelor'))return 'bachelor';if(v.includes('master'))return 'master';if(v.includes('phd')||v.includes('doctor'))return 'phd';return 'bachelor';}
+function appEnglishCode(v){v=((v||profile.eng||'')+'').toLowerCase();if(v.includes('7.5')||v.includes('105')||v.includes('7.0')||v.includes('100'))return 'advanced';if(v.includes('6.5')||v.includes('90')||v.includes('6.0')||v.includes('80'))return 'intermediate';if(v.includes('no test'))return 'basic';return 'intermediate';}
+function appAgeFromPassport(){var dob=(appPassport&&appPassport.date_of_birth)||'';if(!dob)return 24;try{var d=new Date(dob+'T00:00:00');var now=new Date();var age=now.getFullYear()-d.getFullYear();var m=now.getMonth()-d.getMonth();if(m<0||(m===0&&now.getDate()<d.getDate()))age--;return age>0?age:24;}catch(e){return 24;}}
+function appFitProfile(){return {nationality:profile.nat||((appPassport||{}).nationality)||'',currentDegree:appDegreeCode(),field:spFieldCat(profile.field||((appPassport||{}).field_of_study)||''),gpaPct:appGpaPercent(),english:appEnglishCode(),age:appAgeFromPassport(),schType:'any',dest:'any'};}
+function appEvidenceScore(t){var p=appPassport||{};var vals=[p.academic_history,p.achievements,p.leadership_experience,p.research_interests,p.work_experience,p.career_plan,p.financial_need,p.cv_summary,p.recommender_1,p.recommender_2,t&&t.applicant_story,t&&t.academic_strengths,t&&t.leadership_impact,t&&t.career_impact_plan];var scored=vals.map(appTextScore);var avg=scored.reduce(function(a,b){return a+b;},0)/(scored.length||1);var recomm=(p.recommender_1?8:0)+(p.recommender_2?4:0);return appClamp(Math.round(avg+recomm),0,100);}
+function appAlignmentScore(t){t=t||{};var s=appScholarshipMap[String(t.scholarship_id)]||{};var vals=[t.target_university||s.provider,t.target_program,t.university_profile||s.description,t.committee_priorities||s.eligibility_summary,t.applicant_story,t.academic_strengths,t.leadership_impact,t.career_impact_plan,t.financial_need_summary];var weights=[8,10,14,16,12,12,10,12,6];var total=0,got=0;vals.forEach(function(v,i){total+=weights[i];got+=weights[i]*(appTextScore(v)/100);});return appClamp(Math.round((got/(total||1))*100),0,100);}
+function appPreparednessScore(t){var req=appProgress(t);var docs=appDocsForTracker(t.id).length;var docScore=Math.min(100,Math.round((docs/Math.max(appDocTypes().length,1))*100));var pack=appTransferPackMap[String(t.id)]?100:0;return Math.round(req*.55+docScore*.25+pack*.20);}
+function appDeadlineScore(t){var s=appScholarshipMap[String(t.scholarship_id)]||{};var d=t.deadline_date||s.deadline_date;if(!d)return 70;var days=Math.ceil((new Date(d+'T23:59:59')-new Date())/86400000);if(days<0)return 0;if(days<7)return 30;if(days<21)return 55;if(days<60)return 80;return 95;}
+function appSelectivityPenalty(s){var n=((s.name||'')+' '+(s.provider||'')+' '+(s.funding_type||'')).toLowerCase();var p=0;if(n.includes('fully'))p+=5;if(n.includes('gates')||n.includes('knight')||n.includes('stanford')||n.includes('cambridge'))p+=12;if(n.includes('erasmus')||n.includes('commonwealth')||n.includes('mccall')||n.includes('marie'))p+=8;if(n.includes('government')||n.includes('training program'))p+=4;return Math.min(22,p);}
+function appProbabilityClass(v){return v>=70?'good':v>=45?'warn':'bad';}
+function appProbabilityLabel(v){return v>=70?'Strong but still competitive':v>=45?'Moderate / promising':v>=25?'Possible with gaps':'Low until gaps are solved';}
+function appApproxSuccess(t){var srow=appScholarshipMap[String(t.scholarship_id)]||{};var sm=null,fit=null;try{if(srow&&srow.id)sm=spDbScholarshipToMatch(srow);if(sm)fit=sm_fit(appFitProfile(),sm);}catch(e){fit=null;}
+  var fitScore=fit?fit.score:55;var eligible=fit?fit.eligible:true;var passport=appPassportCompleteness();var evidence=appEvidenceScore(t);var alignment=appAlignmentScore(t);var prep=appPreparednessScore(t);var deadline=appDeadlineScore(t);var penalty=appSelectivityPenalty(srow);
+  var raw=(fitScore*.34)+(passport*.10)+(evidence*.16)+(alignment*.20)+(prep*.15)+(deadline*.05)-penalty;
+  var cap=88-penalty;if(passport<55)cap-=8;if(alignment<45)cap-=8;if(prep<45)cap-=6;if(!eligible){raw=Math.min(raw,12);cap=12;}
+  var probability=appClamp(Math.round(raw),3,Math.max(8,cap));
+  var missing=[];if(passport<70)missing.push('Complete more of the Application Passport');if(evidence<65)missing.push('Add stronger evidence: achievements, leadership, work, research, recommenders');if(alignment<65)missing.push('Add target university/program profile and committee expectations');if(prep<70)missing.push('Upload documents, finish checklist, and save a Transfer Pack');if(deadline<55)missing.push('Deadline risk: act quickly or verify if this cycle is still open');if(fit&&!fit.eligible)missing.push(fit.reason||'Eligibility issue detected');
+  return {probability:probability,label:appProbabilityLabel(probability),eligible:eligible,fitScore:fitScore,passport:passport,evidence:evidence,alignment:alignment,preparedness:prep,deadline:deadline,selectivityPenalty:penalty,missing:missing,fit:fit};}
+function appAssessmentHtml(t){var a=appApproxSuccess(t);return `<div class="app-assessment"><div class="app-assessment-title">Applicant relevance and approximate success analysis</div><div>This estimate is a <b>very close approximation based on the information currently available in ScholarsPath</b>. It is not an absolute certainty, not an official decision, and must be improved with real evidence, official eligibility checks, and human review.</div><div class="app-assessment-grid"><div class="app-assessment-part"><b>${a.fitScore}%</b><span>Eligibility / profile fit</span></div><div class="app-assessment-part"><b>${a.evidence}%</b><span>Applicant evidence</span></div><div class="app-assessment-part"><b>${a.alignment}%</b><span>University & scholarship alignment</span></div><div class="app-assessment-part"><b>${a.preparedness}%</b><span>Application readiness</span></div><div class="app-assessment-part"><b>${a.deadline}%</b><span>Deadline health</span></div></div>${a.missing.length?`<div style="margin-top:10px"><b style="color:var(--accent2)">Improve next:</b> ${a.missing.map(appEsc).join('; ')}</div>`:''}</div>`;}
 function appStatusLabel(s){return ({planning:'Planning',drafting:'Drafting',review:'Under review',ready:'Ready to submit',submitted:'Submitted',accepted:'Accepted',rejected:'Not selected'})[s]||'Planning';}
 function appScholarName(id){var s=appScholarshipMap[String(id)];return s?s.name:'Scholarship';}
 function appScholarDeadline(id,t){var s=appScholarshipMap[String(id)];return t&&t.deadline_date?appDateLabel(t.deadline_date):(s?(s.deadline_text||appDateLabel(s.deadline_date)):'Deadline varies');}
@@ -2243,6 +2284,7 @@ async function appLoadApplications(force){
     appSavedRows=saved.data||[];
     var ids=Array.from(new Set(appSavedRows.map(function(r){return Number(r.scholarship_id);}).filter(Boolean)));
     appScholarshipMap={};
+    try{await spFetchCountryRules();}catch(e){console.warn('country rules unavailable for application assessment',e);}
     if(ids.length){
       var sch=await sb.from('scholarships').select('*').in('id',ids);
       if(!sch.error)(sch.data||[]).forEach(function(x){appScholarshipMap[String(x.id)]=x;});
@@ -2327,7 +2369,7 @@ function rPreApp(){
     appLoadApplications(false).then(rPreApp);return;
   }
   pg.innerHTML=`${topbar('My <em>Applications</em>','Prepare once, transfer intelligently into official scholarship and university portals')}
-  <div class="alert alert-i"><span>✦</span><span>ScholarsPath is not a second official application portal. It is your Application Passport and Transfer Pack system: prepare once, then copy, export and submit through the official university or scholarship website.</span></div>
+  <div class="alert alert-i"><span>✦</span><span>ScholarsPath is not a second official application portal. It is your Application Passport and Transfer Pack system: prepare once, then copy, export and submit through the official university or scholarship website. The tracker now separates <b>Passport Completion</b> from a <b>very close approximate Applicant Success Probability</b>; the second is a model-based estimate, not certainty.</span></div>
   <div class="app-tabs">
     <button class="app-tab ${appView==='tracker'?'active':''}" onclick="appSetView('tracker')">Application Tracker</button>
     <button class="app-tab ${appView==='passport'?'active':''}" onclick="appSetView('passport')">Application Passport</button>
@@ -2447,13 +2489,14 @@ function appTransferMissingFromFields(fields){return fields.filter(function(f){r
 function appRenderTransferPack(){
   var id=Number((document.getElementById('tp-tracker')||{}).value||0);var t=appTrackers.find(function(x){return Number(x.id)===id;});var box=document.getElementById('tp-output');if(!box||!t)return;
   var s=appScholarshipMap[String(t.scholarship_id)]||{};
-  var fields=appBuildTransferFields(t);var missing=appTransferMissingFromFields(fields);
+  var fields=appBuildTransferFields(t);var missing=appTransferMissingFromFields(fields);var assessment=appApproxSuccess(t);
   box.className='';
   box.innerHTML=`<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap;margin-bottom:14px">
     <div><div class="sec-title">${appEsc(s.name||appScholarName(t.scholarship_id))}</div><div class="sec-sub">Copy-ready transfer pack for the official application portal</div></div>
     <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn btn-primary" onclick="appSaveTransferPack(${Number(t.id)})">Save Transfer Pack</button>${s.official_url?`<a class="btn btn-outline" href="${appEsc(s.official_url)}" target="_blank" rel="noopener">Open official portal</a>`:''}</div>
   </div>
   <div class="alert alert-w"><span>⚠️</span><span>ScholarsPath prepares answers. The student must review, adapt, paste into the official portal and submit personally. Never submit without checking official requirements.</span></div>
+  <div class="app-prob-note"><b>Approximate applicant success probability:</b> ${assessment.probability}% — ${appEsc(assessment.label)}. This is a very close approximation based on eligibility fit, passport strength, evidence, scholarship alignment, preparedness, deadline health and selectivity. It is not an official decision or certainty.</div>
   ${missing.length?`<div class="app-missing"><b>Fields needing student review:</b> ${missing.map(appEsc).join(', ')}</div>`:''}
   ${fields.map(function(f,i){return `<div class="app-transfer-field"><div class="app-transfer-head"><div><div class="app-transfer-label">${appEsc(f.section)}</div><div style="font-size:16px;font-weight:650">${appEsc(f.label)}</div><div class="sec-sub" style="margin-top:3px">${appEsc(f.guide)}</div></div><button class="btn btn-outline app-copy-btn" onclick="appCopyText('tp-val-${id}-${i}')">Copy</button></div><div class="app-transfer-value" id="tp-val-${id}-${i}">${appEsc(f.value||'')}</div></div>`;}).join('')}`;
 }
@@ -2462,8 +2505,8 @@ async function appSaveTransferPack(trackerId){
   try{
     var u=await sb.auth.getUser();var user=(u&&u.data)?u.data.user:null;if(!user)throw new Error('Please log in first.');
     var t=appTrackers.find(function(x){return Number(x.id)===Number(trackerId);});if(!t)throw new Error('Application not found.');
-    var fields=appBuildTransferFields(t);var missing=appTransferMissingFromFields(fields);var s=appScholarshipMap[String(t.scholarship_id)]||{};
-    var payload={generated_at:new Date().toISOString(),scholarship_name:s.name||appScholarName(t.scholarship_id),official_url:s.official_url||'',fields:fields};
+    var fields=appBuildTransferFields(t);var missing=appTransferMissingFromFields(fields);var s=appScholarshipMap[String(t.scholarship_id)]||{};var assessment=appApproxSuccess(t);
+    var payload={generated_at:new Date().toISOString(),scholarship_name:s.name||appScholarName(t.scholarship_id),official_url:s.official_url||'',applicant_assessment:assessment,fields:fields};
     var res=await sb.from('application_transfer_packs').upsert({user_id:user.id,application_tracker_id:Number(t.id),scholarship_id:Number(t.scholarship_id),target_university:t.target_university||s.provider||'',target_program:t.target_program||'',pack_json:payload,missing_fields:missing,version:1},{onConflict:'application_tracker_id'}).select().maybeSingle();
     if(res.error)throw res.error;appTransferPackMap[String(t.id)]=res.data;alert('Transfer Pack saved.');
   }catch(e){alert('Could not save Transfer Pack: '+(e.message||e));}
@@ -2484,6 +2527,8 @@ function appTrackerHtml(){
   </div>`+appTrackers.map(function(t){
     var s=appScholarshipMap[String(t.scholarship_id)]||{};
     var progress=appProgress(t);
+    var assessment=appApproxSuccess(t);
+    var passportScore=assessment.passport;
     var official=s.official_url||'#';
     return `<div class="app-card">
       <div class="app-head">
@@ -2506,8 +2551,13 @@ function appTrackerHtml(){
             ${official&&official!=='#'?`<a class="btn btn-outline" href="${appEsc(official)}" target="_blank" rel="noopener">Official page</a>`:''}
           </div>
         </div>
-        <div class="app-progress-wrap"><div class="app-progress-title">Requirements Progress</div><div class="app-progress" id="app-prog-${Number(t.id)}">${progress}%</div></div>
+        <div class="app-score-grid">
+          <div class="app-score-box"><div class="app-score-label">Application Passport Completion</div><div class="app-score-num ${passportScore>=70?'good':passportScore>=45?'warn':'bad'}">${passportScore}%</div><div class="app-score-sub">Reusable master profile</div></div>
+          <div class="app-score-box"><div class="app-score-label">Approx. Success Probability</div><div class="app-score-num ${appProbabilityClass(assessment.probability)}">${assessment.probability}%</div><div class="app-score-sub">Very close estimate, not certainty</div></div>
+          <div class="app-score-box"><div class="app-score-label">Requirements Progress</div><div class="app-score-num ${progress>=70?'good':progress>=45?'warn':'bad'}" id="app-prog-${Number(t.id)}">${progress}%</div><div class="app-score-sub">Checklist readiness</div></div>
+        </div>
       </div>
+      ${appAssessmentHtml(t)}
       <div class="app-checklist">
         ${appCheck(t,'documents_ready','Core documents')}
         ${appCheck(t,'personal_statement_ready','Personal statement')}
