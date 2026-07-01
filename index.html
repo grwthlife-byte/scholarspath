@@ -2794,6 +2794,50 @@ function newsBadgeClass(cat){
   if(cat.includes('research')||cat.includes('project'))return 'bp';
   return 'br';
 }
+function newsClean(v,fallback){
+  v=(v||fallback||'').toString().replace(/<[^>]*>/g,' ').replace(/[\r\n]+/g,' ').replace(/\s+/g,' ').trim();
+  if(!v)return fallback||'';
+  return v.replace(/[.!?]+$/,'');
+}
+function newsSentence(v,fallback){
+  const clean=newsClean(v,fallback||'');
+  return appEsc(clean||fallback||'').replace(/\.$/,'')+'.';
+}
+function newsParagraph(sentences,count){
+  const arr=(sentences||[]).filter(Boolean).slice(0,count);
+  while(arr.length<count){arr.push('Students should verify the official source before acting.');}
+  return '<p class="news-article-paragraph">'+arr.join(' ')+'</p>';
+}
+function newsTargetName(n){
+  return newsClean(n.university_name||n.provider||n.source_name||n.title,'this opportunity');
+}
+function newsSourceLabel(n){
+  return newsClean(n.source_name||n.provider||n.university_name||'the official source','the official source');
+}
+function newsDailyArticle(n,m){
+  const target=newsTargetName(n);
+  const zone=newsClean(n.zone||'Global','Global');
+  const category=newsClean(n.category||'curated update','curated update');
+  const degree=profile.deg||'your degree level';
+  const field=profile.field||'your field';
+  const summary=newsClean(n.summary||n.body||n.description,'The update may affect application planning, scholarship timing or university selection');
+  const hidden=newsClean(n.hidden_signal,'The hidden signal is that timing, institutional priorities and document readiness matter as much as the headline itself');
+  const action=newsClean(n.student_action,'Update your Application Passport, check your documents and open the official page before making decisions');
+  const source=newsSourceLabel(n);
+  const p1=[
+    `This update concerns ${target} in ${zone}`,
+    `It is classified as ${category}, so it is relevant to students tracking scholarships, university projects or application opportunities`,
+    `For a student at ${degree} level in ${field}, the main idea is this: ${summary}`,
+    `ScholarsPath selected it because it matches your profile, preferences, saved applications or academic direction`
+  ].map(x=>newsSentence(x));
+  const p2=[
+    `${hidden}`,
+    `${action}`,
+    `Use this information to improve your Transfer Pack, essay direction, document checklist or mentor questions before the official deadline`,
+    `Open the ${source} link below to read the detailed requirements, dates and official instructions`
+  ].map(x=>newsSentence(x));
+  return newsParagraph(p1,4)+newsParagraph(p2,4);
+}
 function renderNewsCard(x){
   const n=x.item,m=x.meta;
   const url=n.official_url||n.source_url||'#';
@@ -2801,47 +2845,99 @@ function renderNewsCard(x){
     <div class="news-feed-top"><div style="flex:1"><div class="news-feed-title">${appEsc(n.title||'Curated update')}</div>
       <div class="news-meta-row"><span class="badge ${newsBadgeClass(n.category)}">${appEsc(n.category||'Update')}</span><span class="tag">${appEsc(n.zone||'Global')}</span>${n.university_name?`<span class="tag">🏛 ${appEsc(n.university_name)}</span>`:''}${n.deadline_date?`<span class="tag">⏰ ${newsDate(n.deadline_date)}</span>`:''}</div></div>
       <div class="news-score">${m.score}%<span>match</span></div></div>
-    <p style="font-size:13.5px;color:var(--text2);margin-bottom:10px">${appEsc(n.summary||n.description||'Open the official source and verify details before acting.')}</p>
-    <div class="news-reason"><b style="color:var(--accent)">Why you see this:</b> ${m.reasons.map(appEsc).join(', ')}. This is curated for your profile, preferences, saved applications and academic direction.</div>
-    <div style="display:flex;gap:9px;flex-wrap:wrap;margin-top:12px"><a class="btn btn-outline" href="${appEsc(url)}" target="_blank" rel="noopener">Open source</a><button class="btn btn-ghost" onclick="saveNewsItem('${appEsc(String(n.id))}')">Save</button></div>
+    <div class="news-short-format">${newsDailyArticle(n,m)}</div>
+    <div class="news-reason"><b style="color:var(--accent)">Why you see this:</b> ${m.reasons.map(appEsc).join(', ')}. This news is calibrated to your profile, preferences, saved applications and academic direction.</div>
+    <div style="display:flex;gap:9px;flex-wrap:wrap;margin-top:12px"><a class="btn btn-outline" href="${appEsc(url)}" target="_blank" rel="noopener">Read full details</a><button class="btn btn-ghost" onclick="saveNewsItem('${appEsc(String(n.id))}')">Save</button></div>
   </div>`;
 }
 function renderDailyNews(){
   const list=personalizedNews();
   return `<div class="news-split"><div>
-    <div class="news-hero"><h2 style="font-size:22px;font-weight:400;margin-bottom:6px">Daily Curated Feed</h2><p style="color:var(--text2);font-size:13px">Not bulk news. These updates are ranked for your preferred zones, target universities, saved scholarships, degree level and field.</p></div>
+    <div class="news-hero"><h2 style="font-size:22px;font-weight:400;margin-bottom:6px">Daily Curated Feed</h2><p style="color:var(--text2);font-size:13px">Every item is presented in a short format: two paragraphs, four sentences each, with a link to the official or detailed source.</p></div>
     <div class="tabs">${newsCategories().map(c=>`<button class="tab ${newsCat===c?'active':''}" onclick="setNewsCat('${appEsc(c)}')">${appEsc(c)}</button>`).join('')}</div>
     ${list.length?list.map(renderNewsCard).join(''):`<div class="news-empty"><div style="font-size:34px;margin-bottom:8px">📰</div><b>No curated news yet.</b><br>Add verified items in Supabase or save scholarships so ScholarsPath can create scholarship-watch alerts.</div>`}
   </div><div>${renderNewsPreferenceBox()}</div></div>`;
 }
 function newsletterDraft(){
-  const list=personalizedNews().slice(0,8);
-  const top=list.slice(0,4);
+  const list=personalizedNews().slice(0,10);
+  const top=list.slice(0,5);
   const gaps=[];
-  if(!newsPreferences||!newsArr(newsPreferences.preferred_zones).length)gaps.push('Choose preferred study zones so the feed can stop being generic.');
-  if(appPassport&&!appPassport.research_interests)gaps.push('Add research interests in your Application Passport to improve university project/news relevance.');
-  if(appTrackers&&appTrackers.some(t=>!t.target_university))gaps.push('Add target universities to tracked applications so the newsletter can monitor institutional news.');
-  if(!top.length)gaps.push('No external curated news has been added yet; current brief is built from active scholarship records.');
-  return {top,gaps};
+  if(!newsPreferences||!newsArr(newsPreferences.preferred_zones).length)gaps.push('Choose preferred study zones so the feed can stop being generic');
+  if(appPassport&&!appPassport.research_interests)gaps.push('Add research interests in your Application Passport to improve university project and research-news relevance');
+  if(appTrackers&&appTrackers.some(t=>!t.target_university))gaps.push('Add target universities to tracked applications so the newsletter can monitor institutional news');
+  if(!top.length)gaps.push('No external curated news has been added yet, so the current brief is built from active scholarship records');
+  const preferredZones=newsArr(newsPreferences&&newsPreferences.preferred_zones).join(', ')||'your preferred study zones';
+  const savedCount=(appTrackers||[]).length;
+  const titles=top.map(x=>newsClean(x.item.title,'curated opportunity')).join('; ')||'your active scholarship and university watch list';
+  return {top,gaps,preferredZones,savedCount,titles};
 }
 function renderWeeklyNewsletter(){
   const latest=weeklyNewsletters&&weeklyNewsletters.length?weeklyNewsletters[0]:null;
   const d=newsletterDraft();
-  return `<div class="grid2"><div class="card"><div style="font-size:18px;font-weight:500;margin-bottom:8px">Weekly ScholarsPath Intelligence Brief</div><p style="color:var(--text2);font-size:13px;margin-bottom:14px">A weekly AI-curated article feed designed to connect the visible news with the hidden opportunity signals behind it. Free now; paid premium intelligence can be added later.</p>
-    <div class="alert alert-i"><span>✦</span><span><b>Important:</b> this version prepares the newsletter engine. Full AI writing should later run server-side through a secure Edge Function, not directly in the browser.</span></div>
+  return `<div class="grid2"><div class="card"><div style="font-size:18px;font-weight:500;margin-bottom:8px">Weekly ScholarsPath Intelligence Brief</div><p style="color:var(--text2);font-size:13px;margin-bottom:14px">Every weekly newsletter is structured in six paragraphs of five sentences each. It summarizes the week, detects under-emphasized signals and turns news into application strategy.</p>
+    <div class="alert alert-i"><span>✦</span><span><b>Important:</b> this browser version previews the format. Full AI writing should later run server-side through a secure Edge Function, not directly in the browser.</span></div>
     <button class="btn btn-primary" onclick="renderNewsletterPreview()">Generate weekly preview</button></div>
-    <div class="card"><div style="font-size:18px;font-weight:500;margin-bottom:10px">Newsletter Settings</div><p style="font-size:13px;color:var(--text2);margin-bottom:12px">Current schedule: once per week. Daily curated news remains separate.</p><button class="btn btn-outline" onclick="newsTab='prefs';rNews()">Edit preferences</button></div></div>
+    <div class="card"><div style="font-size:18px;font-weight:500;margin-bottom:10px">Newsletter Settings</div><p style="font-size:13px;color:var(--text2);margin-bottom:12px">Current schedule: once per week. Daily curated news remains separate and personalized.</p><button class="btn btn-outline" onclick="newsTab='prefs';rNews()">Edit preferences</button></div></div>
     <div id="newsletter-preview" style="margin-top:18px">${latest?renderNewsletterStored(latest):renderNewsletterBox(d)}</div>`;
 }
 function renderNewsletterStored(n){
-  return `<div class="newsletter-box"><h2>${appEsc(n.title||'ScholarsPath Weekly Brief')}</h2><p style="color:#718096">Issue date: ${newsDate(n.issue_date)}</p><div class="news-brief-note">Stored newsletter from Supabase. It can be generated by a future AI pipeline and reviewed before publication.</div><div style="white-space:pre-wrap;font-size:13px;line-height:1.65;color:#4a5568">${appEsc(n.body||n.summary||'')}</div></div>`;
+  if(n&&n.body){return `<div class="newsletter-box"><h2>${appEsc(n.title||'ScholarsPath Weekly Brief')}</h2><p style="color:#718096">Issue date: ${newsDate(n.issue_date)}</p><div class="news-brief-note">Stored newsletter from Supabase. Future AI-generated issues should follow the ScholarsPath rule: six paragraphs of five sentences each.</div><div style="white-space:pre-wrap;font-size:13px;line-height:1.65;color:#4a5568">${appEsc(n.body||n.summary||'')}</div></div>`;}
+  return renderNewsletterBox(newsletterDraft());
 }
+function newsletterParagraph(sentences){return newsParagraph(sentences.map(x=>newsSentence(x)),5);}
 function renderNewsletterBox(d){
-  return `<div class="newsletter-box"><h2>Your Weekly Scholarship Intelligence Brief</h2><p style="color:#718096">Personalized draft preview • ${new Date().toLocaleDateString()}</p><div class="news-brief-note">This is a generated preview based on your current curated feed, saved applications and profile. It is not an official decision or official university notice.</div>
-  <h3>1. The most relevant signals this week</h3><ul>${d.top.length?d.top.map(x=>`<li><b>${appEsc(x.item.title)}</b> — ${appEsc(x.item.summary||'Check the official source and update your application plan.')}</li>`).join(''):'<li>No active curated items yet. Add verified news sources in Supabase.</li>'}</ul>
-  <h3>2. The information hidden behind the information</h3><p>Scholarship and university news should not be read only as announcements. A new project, event, research center or deadline often signals what a university or funder currently values. Use these signals to refine your essays, program fit and mentor questions.</p>
-  <h3>3. Gaps ScholarsPath detected</h3><ul>${d.gaps.map(g=>`<li>${appEsc(g)}</li>`).join('')}</ul>
-  <h3>4. Action plan before next week</h3><ul><li>Update your Application Passport with stronger evidence.</li><li>Check official scholarship pages before acting on any deadline.</li><li>Ask a peer or mentor to review your fit with your target program.</li></ul></div>`;
+  const student=profile.name||'the student';
+  const field=profile.field||'the student’s field';
+  const degree=profile.deg||'the student’s degree level';
+  const country=profile.nat||'the student’s country';
+  const zones=d.preferredZones||'the student’s preferred study zones';
+  const first=d.top[0]&&d.top[0].item?d.top[0].item:null;
+  const firstTitle=first?newsClean(first.title,'the leading opportunity this week'):'the leading opportunity this week';
+  const firstSummary=first?newsClean(first.summary||first.body||first.description,'the opportunity requires early verification and preparation'):'students should use this week to verify opportunities and prepare documents';
+  const gaps=d.gaps&&d.gaps.length?d.gaps.join('; '):'the main gap is to keep the Application Passport, Transfer Pack and documents updated';
+  const p1=[
+    `This week’s ScholarsPath brief is personalized for ${student}, with attention to ${field}, ${degree} level and ${country}`,
+    `The feed prioritizes ${zones}, saved scholarships, tracked applications and university signals connected to the student’s profile`,
+    `The most visible item this week is ${firstTitle}`,
+    `The general meaning of that item is that students should treat scholarship and university news as preparation signals, not just announcements`,
+    `The goal of this newsletter is to turn scattered information into a practical application plan`
+  ];
+  const p2=[
+    `The first major scholarship signal is that deadlines, funding windows and eligibility details often move faster than students expect`,
+    `${firstSummary}`,
+    `A serious applicant should therefore verify the official page, update the Application Passport and prepare documents before the final rush`,
+    `When a scholarship appears relevant, the student should also compare it with their Transfer Pack and approximate success probability`,
+    `This protects the student from applying randomly and helps them focus on the opportunities with the strongest fit`
+  ];
+  const p3=[
+    `The second signal concerns universities themselves, because institutional projects, events, research centers and webinars often reveal what a university currently values`,
+    `If a target university announces a new research project, student-support initiative or program event, that information can strengthen the student’s essay strategy`,
+    `The applicant should not copy the news mechanically, but should connect it honestly with academic interests, career goals and concrete evidence`,
+    `For ${field}, this means watching not only scholarships but also departments, labs, centers, faculties and public events`,
+    `This is how ScholarsPath helps students see the opportunity hidden behind the headline`
+  ];
+  const p4=[
+    `The third signal is the gap between information and readiness`,
+    `This week ScholarsPath detected the following preparation gap: ${gaps}`,
+    `A gap does not mean the student is weak; it means there is still work to do before submitting a competitive application`,
+    `The student should use peers, mentors and the Application Passport to transform missing information into stronger evidence`,
+    `This keeps the student’s application realistic, personal and aligned with what committees are likely to evaluate`
+  ];
+  const p5=[
+    `The recommended action this week is to choose one or two priority opportunities instead of trying to follow everything at once`,
+    `For each priority opportunity, the student should open the official source, verify the deadline and list the exact documents required`,
+    `The student should then update the Transfer Pack, improve the personal statement and check whether recommendation letters are still on schedule`,
+    `If a mentor is available, the student should ask for a targeted review rather than general motivation advice`,
+    `If a peer is applying to a similar opportunity, the student should compare timelines and document requirements without sharing private files carelessly`
+  ];
+  const p6=[
+    `The final interpretation is that scholarship success depends on timing, fit, evidence and disciplined execution`,
+    `News is useful only when it changes what the student does next`,
+    `For the coming week, the student should save the most relevant updates, improve incomplete passport fields and mark official portal actions inside the application tracker`,
+    `ScholarsPath will continue separating daily curated items from the weekly intelligence brief so that students receive both immediate alerts and deeper interpretation`,
+    `This newsletter is guidance, not an official university notice, so the student must always verify details on the official source before acting`
+  ];
+  return `<div class="newsletter-box"><h2>Your Weekly Scholarship Intelligence Brief</h2><p style="color:#718096">Personalized draft preview • ${new Date().toLocaleDateString()}</p><div class="news-brief-note">Format rule: six paragraphs, five sentences each. This is a strategic preview based on your profile, saved applications, preferences and curated feed.</div>${[p1,p2,p3,p4,p5,p6].map(newsletterParagraph).join('')}</div>`;
 }
 function renderNewsletterPreview(){document.getElementById('newsletter-preview').innerHTML=renderNewsletterBox(newsletterDraft());}
 function renderNewsPreferenceBox(){
