@@ -2727,21 +2727,36 @@ function newsActiveScholarshipAlerts(){
     is_generated_alert:true
   }));
 }
+function spTimeout(promise,ms,label){
+  return Promise.race([promise,new Promise(function(resolve){setTimeout(function(){resolve({__timeout:true,label:label});},ms||6500);})]);
+}
 async function loadCuratedNews(force){
   if(!sb)return;
   if(newsLoaded&&!force)return;
   newsLoaded=true;
-  const {data:{user}}=await sb.auth.getUser();
-  const prefRes=await sb.from('user_news_preferences').select('*').eq('user_id',user.id).maybeSingle();
-  newsPreferences=prefRes.data||{
-    user_id:user.id,
-    preferred_zones:[], preferred_countries:[], preferred_universities:[], preferred_categories:[], preferred_fields:[],
-    daily_digest_enabled:true, weekly_newsletter_enabled:true, newsletter_day:'Monday'
-  };
-  const newsRes=await sb.from('curated_news_items').select('*').eq('is_active',true).order('published_at',{ascending:false}).limit(80);
-  curatedNewsItems=newsRes.data||[];
-  const nlRes=await sb.from('weekly_newsletters').select('*').eq('is_public',true).order('issue_date',{ascending:false}).limit(10);
-  weeklyNewsletters=nlRes.data||[];
+  try{
+    const auth=await spTimeout(sb.auth.getUser(),5000,'auth');
+    const user=auth&&auth.data?auth.data.user:null;
+    if(!user)throw new Error('Please log in first.');
+    newsPreferences={
+      user_id:user.id,
+      preferred_zones:[], preferred_countries:profile.nat?[profile.nat]:[], preferred_universities:[], preferred_categories:[], preferred_fields:profile.field?[profile.field]:[],
+      daily_digest_enabled:true, weekly_newsletter_enabled:true, newsletter_day:'Monday'
+    };
+    const prefRes=await spTimeout(sb.from('user_news_preferences').select('*').eq('user_id',user.id).maybeSingle(),6500,'preferences');
+    if(prefRes&&!prefRes.__timeout&&!prefRes.error&&prefRes.data){newsPreferences=prefRes.data;}
+    else if(prefRes&&prefRes.error){console.warn('News preferences unavailable',prefRes.error);}
+    const newsRes=await spTimeout(sb.from('curated_news_items').select('*').eq('is_active',true).order('published_at',{ascending:false}).limit(80),6500,'curated_news_items');
+    if(newsRes&&!newsRes.__timeout&&!newsRes.error){curatedNewsItems=newsRes.data||[];}
+    else {curatedNewsItems=[]; if(newsRes&&newsRes.error)console.warn('Curated news unavailable',newsRes.error);}
+    const nlRes=await spTimeout(sb.from('weekly_newsletters').select('*').eq('is_public',true).order('issue_date',{ascending:false}).limit(10),6500,'weekly_newsletters');
+    if(nlRes&&!nlRes.__timeout&&!nlRes.error){weeklyNewsletters=nlRes.data||[];}
+    else {weeklyNewsletters=[]; if(nlRes&&nlRes.error)console.warn('Weekly newsletters unavailable',nlRes.error);}
+  }catch(e){
+    console.warn('Curated news load failed',e);
+    curatedNewsItems=[]; weeklyNewsletters=[];
+    if(!newsPreferences){newsPreferences={preferred_zones:[],preferred_countries:profile.nat?[profile.nat]:[],preferred_universities:[],preferred_categories:[],preferred_fields:profile.field?[profile.field]:[],daily_digest_enabled:true,weekly_newsletter_enabled:true,newsletter_day:'Monday'};}
+  }
 }
 function scoreCuratedNews(item){
   const prefs=newsPreferences||{};
@@ -2859,13 +2874,20 @@ function setNewsCat(c){newsCat=c;rNews();}
 function setNewsTab(t){newsTab=t;rNews();}
 async function rNews(){
   const pg=document.getElementById('page-news');
+  if(!pg)return;
   pg.innerHTML=`${topbar('Curated <em>News</em>','Daily personalized intelligence + weekly ScholarsPath newsletter')}<div class="card">Loading your curated news...</div>`;
-  await appLoadApplications(false).catch(()=>{});
-  await loadCuratedNews(false).catch(()=>{});
-  pg.innerHTML=`${topbar('Curated <em>News</em>','Daily personalized intelligence + weekly ScholarsPath newsletter')}
-  <div class="alert alert-i"><span>✦</span><span><b>ScholarsPath is not a bulk news board.</b> Daily news is calibrated to each student’s profile, preferred zones, target universities, saved applications and field. The weekly newsletter compiles the week, detects missing signals and turns news into application strategy.</span></div>
-  <div class="tabs"><button class="tab ${newsTab==='daily'?'active':''}" onclick="setNewsTab('daily')">Daily curated feed</button><button class="tab ${newsTab==='weekly'?'active':''}" onclick="setNewsTab('weekly')">Weekly newsletter</button><button class="tab ${newsTab==='prefs'?'active':''}" onclick="setNewsTab('prefs')">Preferences</button></div>
-  ${newsTab==='daily'?renderDailyNews():newsTab==='weekly'?renderWeeklyNewsletter():`<div class="news-split"><div class="card"><div style="font-size:18px;font-weight:500;margin-bottom:10px">How curation works</div><p style="color:var(--text2);font-size:13px">ScholarsPath ranks news by relevance to the individual student: preferred regions, target universities, scholarship deadlines, field of study, degree level, saved applications, institutional events, university projects and hidden opportunity signals.</p><div class="sm-gaps"><div class="sm-gt">Recommended source types</div><ul><li>Official scholarship announcements</li><li>University admissions updates</li><li>Research/project announcements from target universities</li><li>University events, webinars and open days</li><li>Visa, housing and student-support updates</li><li>Signals that reveal what committees and universities currently value</li></ul></div></div><div>${renderNewsPreferenceBox()}</div></div>`}`;
+  try{
+    await spTimeout(appLoadApplications(false),7000,'applications').catch(function(e){console.warn('Applications unavailable for news',e);});
+    await spTimeout(loadCuratedNews(false),7000,'curated news').catch(function(e){console.warn('News unavailable',e);});
+    const body=newsTab==='daily'?renderDailyNews():newsTab==='weekly'?renderWeeklyNewsletter():`<div class="news-split"><div class="card"><div style="font-size:18px;font-weight:500;margin-bottom:10px">How curation works</div><p style="color:var(--text2);font-size:13px">ScholarsPath ranks news by relevance to the individual student: preferred regions, target universities, scholarship deadlines, field of study, degree level, saved applications, institutional events, university projects and hidden opportunity signals.</p><div class="sm-gaps"><div class="sm-gt">Recommended source types</div><ul><li>Official scholarship announcements</li><li>University admissions updates</li><li>Research/project announcements from target universities</li><li>University events, webinars and open days</li><li>Visa, housing and student-support updates</li><li>Signals that reveal what committees and universities currently value</li></ul></div></div><div>${renderNewsPreferenceBox()}</div></div>`;
+    pg.innerHTML=`${topbar('Curated <em>News</em>','Daily personalized intelligence + weekly ScholarsPath newsletter')}
+    <div class="alert alert-i"><span>✦</span><span><b>ScholarsPath is not a bulk news board.</b> Daily news is calibrated to each student’s profile, preferred zones, target universities, saved applications and field. The weekly newsletter compiles the week, detects missing signals and turns news into application strategy.</span></div>
+    <div class="tabs"><button class="tab ${newsTab==='daily'?'active':''}" onclick="setNewsTab('daily')">Daily curated feed</button><button class="tab ${newsTab==='weekly'?'active':''}" onclick="setNewsTab('weekly')">Weekly newsletter</button><button class="tab ${newsTab==='prefs'?'active':''}" onclick="setNewsTab('prefs')">Preferences</button></div>
+    ${body}`;
+  }catch(e){
+    console.error('News render failed',e);
+    pg.innerHTML=`${topbar('Curated <em>News</em>','Daily personalized intelligence + weekly ScholarsPath newsletter')}<div class="alert alert-w"><span>⚠️</span><span>The curated news module loaded slowly or hit a database permission issue. The app is safe; refresh the page or check that the news SQL was run in Supabase.</span></div><div class="card"><div style="font-size:18px;font-weight:500;margin-bottom:8px">Fallback scholarship-watch feed</div>${newsActiveScholarshipAlerts().length?newsActiveScholarshipAlerts().map(function(n){return renderNewsCard({item:n,meta:scoreCuratedNews(n)});}).join(''):'<p style="color:var(--text2)">No fallback scholarship alerts yet. Add active scholarships first.</p>'}</div>`;
+  }
 }
 // ── MENTAL HEALTH ─────────────────────────────────────────────────────────────
 function rMental(){
