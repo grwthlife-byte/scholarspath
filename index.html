@@ -726,6 +726,7 @@ let ivMode='setup',ivIdx=0,ivAnswers=[];
 let isRec=false,recInt=null,recSec=0;
 let mFilter='All',nFilter='All';
 let newsTab='daily',newsCat='All';
+let newsLoadingNow=false;
 let curatedNewsItems=[];
 let weeklyNewsletters=[];
 let newsPreferences=null;
@@ -2872,21 +2873,37 @@ async function saveNewsItem(id){
 }
 function setNewsCat(c){newsCat=c;rNews();}
 function setNewsTab(t){newsTab=t;rNews();}
-async function rNews(){
+function rNews(){
   const pg=document.getElementById('page-news');
   if(!pg)return;
-  pg.innerHTML=`${topbar('Curated <em>News</em>','Daily personalized intelligence + weekly ScholarsPath newsletter')}<div class="card">Loading your curated news...</div>`;
+  let body='';
   try{
-    await spTimeout(appLoadApplications(false),7000,'applications').catch(function(e){console.warn('Applications unavailable for news',e);});
-    await spTimeout(loadCuratedNews(false),7000,'curated news').catch(function(e){console.warn('News unavailable',e);});
-    const body=newsTab==='daily'?renderDailyNews():newsTab==='weekly'?renderWeeklyNewsletter():`<div class="news-split"><div class="card"><div style="font-size:18px;font-weight:500;margin-bottom:10px">How curation works</div><p style="color:var(--text2);font-size:13px">ScholarsPath ranks news by relevance to the individual student: preferred regions, target universities, scholarship deadlines, field of study, degree level, saved applications, institutional events, university projects and hidden opportunity signals.</p><div class="sm-gaps"><div class="sm-gt">Recommended source types</div><ul><li>Official scholarship announcements</li><li>University admissions updates</li><li>Research/project announcements from target universities</li><li>University events, webinars and open days</li><li>Visa, housing and student-support updates</li><li>Signals that reveal what committees and universities currently value</li></ul></div></div><div>${renderNewsPreferenceBox()}</div></div>`;
-    pg.innerHTML=`${topbar('Curated <em>News</em>','Daily personalized intelligence + weekly ScholarsPath newsletter')}
+    body=newsTab==='daily'?renderDailyNews():newsTab==='weekly'?renderWeeklyNewsletter():`<div class="news-split"><div class="card"><div style="font-size:18px;font-weight:500;margin-bottom:10px">How curation works</div><p style="color:var(--text2);font-size:13px">ScholarsPath ranks news by relevance to the individual student: preferred regions, target universities, scholarship deadlines, field of study, degree level, saved applications, institutional events, university projects and hidden opportunity signals.</p><div class="sm-gaps"><div class="sm-gt">Recommended source types</div><ul><li>Official scholarship announcements</li><li>University admissions updates</li><li>Research/project announcements from target universities</li><li>University events, webinars and open days</li><li>Visa, housing and student-support updates</li><li>Signals that reveal what committees and universities currently value</li></ul></div></div><div>${renderNewsPreferenceBox()}</div></div>`;
+  }catch(e){
+    console.warn('News body render failed; using safe fallback',e);
+    const fallback=newsActiveScholarshipAlerts();
+    body=`<div class="card"><div style="font-size:18px;font-weight:500;margin-bottom:8px">Scholarship-watch feed</div>${fallback.length?fallback.map(function(n){return renderNewsCard({item:n,meta:{score:70,reasons:['active scholarship in your database']}});}).join(''):'<p style="color:var(--text2)">No curated news yet. Add active scholarships or curated news records in Supabase.</p>'}</div>`;
+  }
+  pg.innerHTML=`${topbar('Curated <em>News</em>','Daily personalized intelligence + weekly ScholarsPath newsletter')}
     <div class="alert alert-i"><span>✦</span><span><b>ScholarsPath is not a bulk news board.</b> Daily news is calibrated to each student’s profile, preferred zones, target universities, saved applications and field. The weekly newsletter compiles the week, detects missing signals and turns news into application strategy.</span></div>
+    ${newsLoadingNow?'<div class="alert alert-w"><span>⏳</span><span>Updating news data in the background. The page remains usable while ScholarsPath checks Supabase.</span></div>':''}
     <div class="tabs"><button class="tab ${newsTab==='daily'?'active':''}" onclick="setNewsTab('daily')">Daily curated feed</button><button class="tab ${newsTab==='weekly'?'active':''}" onclick="setNewsTab('weekly')">Weekly newsletter</button><button class="tab ${newsTab==='prefs'?'active':''}" onclick="setNewsTab('prefs')">Preferences</button></div>
     ${body}`;
-  }catch(e){
-    console.error('News render failed',e);
-    pg.innerHTML=`${topbar('Curated <em>News</em>','Daily personalized intelligence + weekly ScholarsPath newsletter')}<div class="alert alert-w"><span>⚠️</span><span>The curated news module loaded slowly or hit a database permission issue. The app is safe; refresh the page or check that the news SQL was run in Supabase.</span></div><div class="card"><div style="font-size:18px;font-weight:500;margin-bottom:8px">Fallback scholarship-watch feed</div>${newsActiveScholarshipAlerts().length?newsActiveScholarshipAlerts().map(function(n){return renderNewsCard({item:n,meta:scoreCuratedNews(n)});}).join(''):'<p style="color:var(--text2)">No fallback scholarship alerts yet. Add active scholarships first.</p>'}</div>`;
+
+  // Background refresh only. Never block the page behind a permanent loading screen.
+  if(!newsLoadingNow && (!newsLoaded || !curatedNewsItems || !weeklyNewsletters)){
+    newsLoadingNow=true;
+    Promise.allSettled([
+      spTimeout(appLoadApplications(false),5000,'applications'),
+      spTimeout(loadCuratedNews(false),5000,'curated news')
+    ]).then(function(){
+      newsLoadingNow=false;
+      const active=document.getElementById('page-news');
+      if(active && active.classList.contains('active')) rNews();
+    }).catch(function(e){
+      console.warn('Background news refresh failed',e);
+      newsLoadingNow=false;
+    });
   }
 }
 // ── MENTAL HEALTH ─────────────────────────────────────────────────────────────
