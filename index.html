@@ -351,6 +351,8 @@ textarea.fi{resize:vertical;min-height:80px}
 .newsletter-box h2{font-size:24px;margin-bottom:8px;color:#1a202c}.newsletter-box h3{font-size:15px;color:#2d3748;margin:18px 0 8px}.newsletter-box p,.newsletter-box li{font-size:13px;color:#4a5568;line-height:1.65}.newsletter-box ul{padding-left:18px}
 .news-brief-note{background:#edfdfd;border:1px solid #bee3e3;color:#285e61;border-radius:10px;padding:10px 12px;font-size:12px;margin:12px 0}
 
+
+@media(max-width:1000px){.career-plan-grid{grid-template-columns:1fr!important}}
 </style>
 </head>
 <body>
@@ -449,13 +451,21 @@ textarea.fi{resize:vertical;min-height:80px}
         </div>
       </div>
       <div id="ob-s2" style="display:none">
-        <h3 style="font-size:20px;font-weight:400;margin-bottom:20px">🎯 Scholarship Goals</h3>
+        <h3 style="font-size:20px;font-weight:400;margin-bottom:20px">🎯 Scholarship & Career Direction</h3>
         <div class="fg"><label class="fl">Career Goal</label><textarea class="fi" id="f-goal" placeholder="e.g. I want to become an AI researcher and bring technology solutions to my country's agriculture sector..." style="min-height:90px"></textarea></div>
         <div class="grid2">
-          <div class="fg"><label class="fl">Target Start Year</label><select class="fi" id="f-yr"><option value="">Select</option><option>2025</option><option>2026</option><option>2027</option></select></div>
+          <div class="fg"><label class="fl">Target Start Year</label><select class="fi" id="f-yr"><option value="">Select</option><option>2025</option><option>2026</option><option>2027</option><option>2028</option><option>2029</option><option>2030</option></select></div>
+          <div class="fg"><label class="fl">Expected Graduation Year</label><select class="fi" id="f-grad"><option value="">Select</option><option>2026</option><option>2027</option><option>2028</option><option>2029</option><option>2030</option><option>2031</option><option>2032</option></select></div>
           <div class="fg"><label class="fl">Budget</label><select class="fi" id="f-bud"><option value="">Select</option><option>$0 (Fully sponsored only)</option><option>Up to $500</option><option>Up to $2,000</option><option>Flexible</option></select></div>
+          <div class="fg"><label class="fl">Preferred Career Direction</label><select class="fi" id="f-career-role"><option value="">Select</option><option>Employee / Manager track</option><option>Research / Academic track</option><option>Public sector / NGO impact track</option><option>Startup founder track</option><option>Undecided / explore options</option></select></div>
+          <div class="fg"><label class="fl">Preferred Career Countries or Zones</label><select class="fi" id="f-career-zones"><option value="">Select</option><option>Open worldwide</option><option>North America</option><option>Europe</option><option>Asia-Pacific</option><option>Africa</option><option>Middle East</option><option>Home country first</option></select></div>
+          <div class="fg"><label class="fl">Work Style</label><select class="fi" id="f-workstyle"><option value="">Select</option><option>Research and deep analysis</option><option>Leadership and management</option><option>Technical building</option><option>Policy and public impact</option><option>Business development and sales</option><option>Teaching, mentoring, and communication</option></select></div>
+          <div class="fg"><label class="fl">Startup Interest</label><select class="fi" id="f-startup"><option value="">Select</option><option>No startup plan for now</option><option>Maybe later after employment</option><option>I want to prepare a startup while employed</option><option>I want to run a startup within 10 years</option></select></div>
+          <div class="fg"><label class="fl">Career Risk Level</label><select class="fi" id="f-risk"><option value="">Select</option><option>Low risk — stable job first</option><option>Moderate risk — growth and opportunity</option><option>High risk — entrepreneurship and innovation</option></select></div>
+          <div class="fg"><label class="fl">Salary Priority</label><select class="fi" id="f-salary-priority"><option value="">Select</option><option>High salary is very important</option><option>Balanced salary and impact</option><option>Impact and mission are more important</option></select></div>
         </div>
-        <div class="alert alert-i"><span>✦</span><span>ScholarsPath calculates an honest Fit Score based on eligibility, profile fit, and gaps to close. It is guidance, not a guarantee.</span></div>
+        <div class="fg"><label class="fl">10-Year Impact Plan</label><textarea class="fi" id="f-impact" placeholder="What kind of work, country impact, research, organization, or company would you like to build or contribute to within 10 years?" style="min-height:80px"></textarea></div>
+        <div class="alert alert-i"><span>✦</span><span>These questions help ScholarsPath prepare scholarship matching, the Application Passport, and three projected career plans. Career projections are guidance, not certainty; the final decision always belongs to the student.</span></div>
       </div>
       <div style="display:flex;justify-content:space-between;margin-top:10px">
         <button class="btn btn-outline" id="ob-back" onclick="obBack()" style="visibility:hidden">← Back</button>
@@ -626,7 +636,15 @@ async function saveProfile(){
     korean:profile.kor||'',
     goal:profile.goal||'',
     target_year:profile.yr||'',
-    budget:profile.bud||''
+    budget:profile.bud||'',
+    graduation_year:profile.grad||'',
+    career_direction:profile.careerRole||'',
+    preferred_career_zones:profile.careerZones||'',
+    work_style:profile.workstyle||'',
+    startup_intent:profile.startupIntent||'',
+    career_risk_level:profile.riskLevel||'',
+    salary_priority:profile.salaryPriority||'',
+    career_impact_plan:profile.impactPlan||''
   });
 }
 
@@ -646,7 +664,15 @@ async function loadProfile(){
       kor:data.korean||'',
       goal:data.goal||'',
       yr:data.target_year||'2025',
-      bud:data.budget||''
+      bud:data.budget||'',
+      grad:data.graduation_year||'',
+      careerRole:data.career_direction||'',
+      careerZones:data.preferred_career_zones||'',
+      workstyle:data.work_style||'',
+      startupIntent:data.startup_intent||'',
+      riskLevel:data.career_risk_level||'',
+      salaryPriority:data.salary_priority||'',
+      impactPlan:data.career_impact_plan||''
     };
     return profile;
   }
@@ -787,7 +813,15 @@ function obNext(){
       kor:'',
       goal:document.getElementById('f-goal').value||'',
       yr:document.getElementById('f-yr').value||'2025',
+      grad:document.getElementById('f-grad').value||'',
       bud:document.getElementById('f-bud').value||'',
+      careerRole:document.getElementById('f-career-role').value||'',
+      careerZones:document.getElementById('f-career-zones').value||'',
+      workstyle:document.getElementById('f-workstyle').value||'',
+      startupIntent:document.getElementById('f-startup').value||'',
+      riskLevel:document.getElementById('f-risk').value||'',
+      salaryPriority:document.getElementById('f-salary-priority').value||'',
+      impactPlan:document.getElementById('f-impact').value||'',
     };
     initApp();
     saveProfile();
@@ -804,7 +838,7 @@ function obBack(){
   }
 }
 function updStepper(){
-  const lbls=['👤 Personal Info','📚 Academic Background','🎯 Scholarship Goals'];
+  const lbls=['👤 Personal Info','📚 Academic Background','🎯 Scholarship & Career Direction'];
   document.getElementById('ob-step-info').textContent='Step '+(obStep+1)+' of 3 — '+lbls[obStep];
   document.getElementById('ob-back').style.visibility=obStep===0?'hidden':'visible';
   document.getElementById('ob-next').textContent=obStep===2?'🚀 Launch My Journey':'Continue →';
@@ -3163,49 +3197,188 @@ function stopRec(){
 function fmtT(s){return Math.floor(s/60)+':'+(s%60).toString().padStart(2,'0');}
 
 // ── CAREER ────────────────────────────────────────────────────────────────────
+function escCareer(v){return spEsc(v||'');}
+function careerNum(v,d){const n=parseInt(v,10);return Number.isFinite(n)?n:d;}
+function careerFieldCluster(field){
+  const f=(field||'').toLowerCase();
+  if(/computer|software|artificial intelligence|machine|data|information systems/.test(f)) return 'tech';
+  if(/engineering|materials|architecture/.test(f)) return 'engineering';
+  if(/medicine|health|nursing|pharmacy|public health|biomedical|neuroscience|nutrition/.test(f)) return 'health';
+  if(/business|management|finance|accounting|marketing|economics/.test(f)) return 'business';
+  if(/law|policy|politics|international|development|sociology|anthropology|education|social/.test(f)) return 'policy';
+  if(/agriculture|food|forestry|plant|animal|biotechnology|environmental/.test(f)) return 'sustainability';
+  return 'general';
+}
+function careerBaseRoles(cluster){
+  const map={
+    tech:['Junior Data / AI Analyst','AI Product Specialist','Senior AI / Data Strategy Manager','AI Solutions Founder'],
+    engineering:['Graduate Engineer','Project / Systems Engineer','Engineering Manager','Technical Venture Founder'],
+    health:['Public Health / Research Associate','Health Program Specialist','Health Innovation Manager','Health Impact Founder'],
+    business:['Business Analyst','Strategy / Growth Associate','Operations or Strategy Manager','Market Expansion Founder'],
+    policy:['Policy / Program Analyst','International Program Officer','Policy Manager or Advisor','Civic Innovation Founder'],
+    sustainability:['Sustainability Analyst','Climate / Food Systems Specialist','Impact Program Manager','Sustainability Venture Founder'],
+    general:['Graduate Professional Trainee','Specialist in Chosen Field','Program / Team Manager','Mission-Driven Founder']
+  };
+  return map[cluster]||map.general;
+}
+function careerCountries(cluster,zone){
+  const z=(zone||'').toLowerCase();
+  if(z.includes('north')) return ['Canada','United States','Mexico'];
+  if(z.includes('europe')) return ['Germany','Netherlands','France','United Kingdom','Switzerland'];
+  if(z.includes('asia')) return ['South Korea','Japan','Singapore','Australia'];
+  if(z.includes('africa')) return ['South Africa','Rwanda','Kenya','Gabon','Ghana'];
+  if(z.includes('middle')) return ['United Arab Emirates','Qatar','Saudi Arabia'];
+  if(z.includes('home')) return [profile.nat||'Home country','Regional hub country','Scholarship host country'];
+  const map={
+    tech:['Canada','Germany','South Korea','Singapore','United States'],
+    engineering:['Germany','Canada','Australia','South Korea','Japan'],
+    health:['Canada','United Kingdom','Australia','Netherlands','South Korea'],
+    business:['Canada','United Kingdom','Singapore','United Arab Emirates','United States'],
+    policy:['United Kingdom','Canada','Switzerland','Netherlands','France'],
+    sustainability:['Netherlands','Germany','Canada','Australia','Rwanda'],
+    general:['Canada','United Kingdom','Germany','Australia','South Korea']
+  };
+  return map[cluster]||map.general;
+}
+function careerSalaryRange(cluster,level){
+  const base={tech:1.35,engineering:1.25,health:1.15,business:1.2,policy:1.0,sustainability:1.05,general:0.95}[cluster]||1;
+  const ranges={early:[32000,52000],mid:[52000,85000],senior:[80000,145000],founder:[0,220000]};
+  const r=ranges[level]||ranges.senior;
+  const a=Math.round(r[0]*base/5000)*5000;
+  const b=Math.round(r[1]*base/5000)*5000;
+  if(level==='founder') return 'Variable: $0–$'+b.toLocaleString()+'+ depending on revenue and funding';
+  return '$'+a.toLocaleString()+'–$'+b.toLocaleString()+' / year';
+}
+function careerPlanCompleteness(){
+  const keys=['goal','field','deg','gpa','eng','grad','careerRole','careerZones','workstyle','startupIntent','riskLevel','salaryPriority','impactPlan'];
+  const filled=keys.filter(k=>(profile[k]||'').toString().trim()).length;
+  return Math.round((filled/keys.length)*100);
+}
+function buildCareerProposals(){
+  const cluster=careerFieldCluster(profile.field);
+  const roles=careerBaseRoles(cluster);
+  const grad=careerNum(profile.grad, careerNum(profile.yr,2026)+2);
+  const y10=grad+10;
+  const countries=careerCountries(cluster, profile.careerZones);
+  const goal=profile.goal||'Build a meaningful international career connected to the student’s academic field and scholarship path.';
+  const impact=profile.impactPlan||'Develop professional expertise, contribute to useful projects, and keep options open between employment, leadership, and entrepreneurship.';
+  const startupStrong=(profile.startupIntent||'').toLowerCase().includes('run')||(profile.startupIntent||'').toLowerCase().includes('startup while');
+  const risk=(profile.riskLevel||'').toLowerCase();
+  const professionalStatus=startupStrong?'Employed while preparing a startup, or transitioning into startup leadership':'Employee / manager track';
+  return [
+    {
+      icon:'🏢',name:'Plan A — International Professional / Manager Track',confidence:'Most stable path',
+      thesis:'This path prioritizes employability, strong salary growth, international experience, and management responsibility by Year 10.',
+      jobs:[
+        {year:`${grad}–${grad+2}`,role:roles[0],note:'Entry role after graduation; build technical credibility and professional references.'},
+        {year:`${grad+3}–${grad+5}`,role:roles[1],note:'Move into a specialized role connected to the scholarship field and host-country market.'},
+        {year:`${grad+6}–${y10}`,role:roles[2],note:'Target team leadership, project ownership, regional responsibility, or senior specialist status.'}
+      ],
+      countries:countries.slice(0,4),salary:careerSalaryRange(cluster,'senior'),status:'Employee / manager',
+      actions:['Build internship experience before graduation','Use mentors for CV and interview review','Choose scholarships with strong university-industry links','Track work-permit rules in target countries']
+    },
+    {
+      icon:'🔬',name:'Plan B — Research / Expert / Policy Leadership Track',confidence:'Best for academic depth',
+      thesis:'This path fits students who want to become recognized experts, researchers, policy advisors, consultants, or institutional leaders.',
+      jobs:[
+        {year:`${grad}–${grad+2}`,role:cluster==='tech'?'Research Assistant / AI Analyst':cluster==='health'?'Research or Program Associate':'Research / Policy Assistant',note:'Develop evidence, publications, case studies, and a serious professional portfolio.'},
+        {year:`${grad+3}–${grad+5}`,role:cluster==='business'?'Strategy Research Associate':'Graduate Researcher / Specialist Advisor',note:'Strengthen expertise through a master’s thesis, PhD route, policy work, or specialist projects.'},
+        {year:`${grad+6}–${y10}`,role:cluster==='policy'?'Policy Manager / International Advisor':'Senior Specialist / Research Lead',note:'Become a visible expert able to advise institutions, universities, NGOs, firms, or public bodies.'}
+      ],
+      countries:careerCountries(cluster, profile.careerZones).slice(0,5),salary:careerSalaryRange(cluster,'mid')+' initially; '+careerSalaryRange(cluster,'senior')+' by senior expert stage',status:'Employee / manager or senior expert',
+      actions:['Publish or document serious projects','Choose universities with strong research centers','Join conferences and professional networks','Keep a strong Application Passport and portfolio']
+    },
+    {
+      icon:'🚀',name:'Plan C — Startup Builder / Impact Venture Track',confidence:risk.includes('low')?'Higher risk path':'Entrepreneurial path',
+      thesis:'This path is for students who may want employment first, then gradually build a company, consulting practice, lab, or social venture.',
+      jobs:[
+        {year:`${grad}–${grad+2}`,role:roles[0]+' + problem discovery',note:'Work in the field while identifying a real student, industry, or country-level problem to solve.'},
+        {year:`${grad+3}–${grad+5}`,role:'Product / Project Lead or Startup Preparation',note:'Build a small prototype, client base, research asset, or pilot project while still employed if necessary.'},
+        {year:`${grad+6}–${y10}`,role:startupStrong?'Founder / Operator of a growing startup':'Employed but preparing a startup launch',note:'Choose the timing based on savings, traction, visa rules, co-founders, and market evidence.'}
+      ],
+      countries:[...new Set([...(countries.slice(0,3)),profile.nat||'Home country'])],salary:careerSalaryRange(cluster,'founder'),status:startupStrong?'Actually running a startup':'Employed but preparing the launch of a startup',
+      actions:['Validate the problem before building','Use university incubators and mentor networks','Do not sacrifice academic performance','Start with a small paid pilot before leaving employment']
+    }
+  ].map(p=>({...p,goal,impact}));
+}
+function renderCareerInputCard(){
+  return `<div class="card" style="margin-bottom:20px">
+    <div style="display:flex;justify-content:space-between;gap:12px;align-items:flex-start;flex-wrap:wrap;margin-bottom:14px">
+      <div><div class="sec-title">Career Projection Inputs</div><p class="sec-sub">These fields improve the predictive career plan. They are also part of the student profile.</p></div>
+      <div class="badge bg">Profile depth: ${careerPlanCompleteness()}%</div>
+    </div>
+    <div class="grid2">
+      <div class="fg"><label class="fl">Expected Graduation Year</label><input class="fi" id="career-grad" value="${escCareer(profile.grad)}" placeholder="e.g. 2028"></div>
+      <div class="fg"><label class="fl">Preferred Career Direction</label><select class="fi" id="career-role"><option>${escCareer(profile.careerRole||'Undecided / explore options')}</option><option>Employee / Manager track</option><option>Research / Academic track</option><option>Public sector / NGO impact track</option><option>Startup founder track</option><option>Undecided / explore options</option></select></div>
+      <div class="fg"><label class="fl">Preferred Career Countries or Zones</label><select class="fi" id="career-zones"><option>${escCareer(profile.careerZones||'Open worldwide')}</option><option>Open worldwide</option><option>North America</option><option>Europe</option><option>Asia-Pacific</option><option>Africa</option><option>Middle East</option><option>Home country first</option></select></div>
+      <div class="fg"><label class="fl">Work Style</label><select class="fi" id="career-workstyle"><option>${escCareer(profile.workstyle||'Research and deep analysis')}</option><option>Research and deep analysis</option><option>Leadership and management</option><option>Technical building</option><option>Policy and public impact</option><option>Business development and sales</option><option>Teaching, mentoring, and communication</option></select></div>
+      <div class="fg"><label class="fl">Startup Interest</label><select class="fi" id="career-startup"><option>${escCareer(profile.startupIntent||'Maybe later after employment')}</option><option>No startup plan for now</option><option>Maybe later after employment</option><option>I want to prepare a startup while employed</option><option>I want to run a startup within 10 years</option></select></div>
+      <div class="fg"><label class="fl">Career Risk Level</label><select class="fi" id="career-risk"><option>${escCareer(profile.riskLevel||'Moderate risk — growth and opportunity')}</option><option>Low risk — stable job first</option><option>Moderate risk — growth and opportunity</option><option>High risk — entrepreneurship and innovation</option></select></div>
+      <div class="fg"><label class="fl">Salary Priority</label><select class="fi" id="career-salary-priority"><option>${escCareer(profile.salaryPriority||'Balanced salary and impact')}</option><option>High salary is very important</option><option>Balanced salary and impact</option><option>Impact and mission are more important</option></select></div>
+      <div class="fg"><label class="fl">10-Year Impact Plan</label><textarea class="fi" id="career-impact" placeholder="Describe the long-term work, country impact, research, organization or company you want to build or join." style="min-height:90px">${escCareer(profile.impactPlan)}</textarea></div>
+    </div>
+    <button class="btn btn-primary" onclick="saveCareerInputs()">Save & Regenerate Career Plans</button>
+  </div>`;
+}
+async function saveCareerInputs(){
+  profile.grad=document.getElementById('career-grad').value.trim();
+  profile.careerRole=document.getElementById('career-role').value;
+  profile.careerZones=document.getElementById('career-zones').value;
+  profile.workstyle=document.getElementById('career-workstyle').value;
+  profile.startupIntent=document.getElementById('career-startup').value;
+  profile.riskLevel=document.getElementById('career-risk').value;
+  profile.salaryPriority=document.getElementById('career-salary-priority').value;
+  profile.impactPlan=document.getElementById('career-impact').value.trim();
+  await saveProfile();
+  rCareer();
+}
 function rCareer(){
   const n=profile.name||'Scholar';
+  const proposals=buildCareerProposals();
+  const grad=careerNum(profile.grad, careerNum(profile.yr,2026)+2);
+  const y10=grad+10;
   document.getElementById('page-career').innerHTML=`
-  ${topbar('Career <em>Plan</em>','Your personalized 10-year roadmap & matched scholarships')}
+  ${topbar('Career <em>Plan</em>','Three projected 10-year pathways based on your profile and study trajectory')}
+  <div class="alert alert-w"><span>⚠️</span><span><b>Projection, not certainty.</b> These career plans are directional scenarios based on the information currently in your ScholarsPath profile. They are not promises, official labor-market predictions, immigration advice, or guaranteed salaries. The student remains the final decision-maker.</span></div>
   <div class="card" style="margin-bottom:22px;background:linear-gradient(135deg,rgba(79,209,197,.05),rgba(159,122,234,.05))">
     <div style="display:flex;gap:18px;align-items:center;flex-wrap:wrap">
       <div style="font-size:44px">🗺️</div>
       <div style="flex:1">
-        <h3 style="font-size:20px;font-weight:400;margin-bottom:4px">${n.split(' ')[0]}'s 10-Year Vision</h3>
-        <p style="color:var(--text2);font-size:13px;line-height:1.6">${profile.goal||"Become a global leader in your field through world-class education and impactful research."}</p>
+        <h3 style="font-size:20px;font-weight:400;margin-bottom:4px">${escCareer(n.split(' ')[0])}'s Predictive Career Model</h3>
+        <p style="color:var(--text2);font-size:13px;line-height:1.6">${escCareer(profile.goal||'Define your goal in the profile to make these projections more personal.')} ${profile.impactPlan?'<br><span style="color:var(--accent)">Long-term impact:</span> '+escCareer(profile.impactPlan):''}</p>
       </div>
-      <div style="display:flex;gap:10px">
-        <div style="text-align:center;padding:8px 14px;background:var(--bg3);border-radius:10px"><div style="font-size:18px;font-weight:700;color:var(--accent)">${profile.yr||'2025'}</div><div style="font-size:11px;color:var(--text3)">Start Year</div></div>
-        <div style="text-align:center;padding:8px 14px;background:var(--bg3);border-radius:10px"><div style="font-size:18px;font-weight:700;color:var(--accent2)">2035</div><div style="font-size:11px;color:var(--text3)">Vision Year</div></div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap">
+        <div style="text-align:center;padding:8px 14px;background:var(--bg3);border-radius:10px"><div style="font-size:18px;font-weight:700;color:var(--accent)">${grad}</div><div style="font-size:11px;color:var(--text3)">Graduation</div></div>
+        <div style="text-align:center;padding:8px 14px;background:var(--bg3);border-radius:10px"><div style="font-size:18px;font-weight:700;color:var(--accent2)">${y10}</div><div style="font-size:11px;color:var(--text3)">Year 10</div></div>
+        <div style="text-align:center;padding:8px 14px;background:var(--bg3);border-radius:10px"><div style="font-size:18px;font-weight:700;color:var(--accent3)">${careerPlanCompleteness()}%</div><div style="font-size:11px;color:var(--text3)">Input depth</div></div>
       </div>
     </div>
   </div>
+  ${renderCareerInputCard()}
+  <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-bottom:22px" class="career-plan-grid">
+    ${proposals.map((p,idx)=>`<div class="card" style="display:flex;flex-direction:column;gap:12px">
+      <div style="display:flex;gap:10px;align-items:flex-start"><div style="font-size:30px">${p.icon}</div><div><div style="font-weight:600;font-size:15px;line-height:1.35">${escCareer(p.name)}</div><div class="sec-sub">${escCareer(p.confidence)}</div></div></div>
+      <p style="font-size:13px;color:var(--text2);line-height:1.55">${escCareer(p.thesis)}</p>
+      <div><div class="fl">Job trajectory from graduation to Year 10</div>${p.jobs.map(j=>`<div style="background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:10px;margin-bottom:8px"><div style="font-size:11px;color:var(--accent);font-weight:700">${escCareer(j.year)}</div><div style="font-size:13px;font-weight:500">${escCareer(j.role)}</div><div style="font-size:12px;color:var(--text3)">${escCareer(j.note)}</div></div>`).join('')}</div>
+      <div><div class="fl">Most adaptable countries / zones</div><div style="display:flex;flex-wrap:wrap;gap:6px">${p.countries.map(c=>`<span class="tag">${escCareer(c)}</span>`).join('')}</div></div>
+      <div style="background:rgba(79,209,197,.07);border:1px solid rgba(79,209,197,.18);border-radius:10px;padding:10px"><div class="fl">Approximate Year-10 salary range</div><div style="font-size:14px;font-weight:600;color:var(--accent)">${escCareer(p.salary)}</div><div class="sec-sub">Broad planning estimate; varies by country, visa, employer, sector, and performance.</div></div>
+      <div><div class="fl">Professional status at Year 10</div><div style="font-size:13px;color:var(--text)">${escCareer(p.status)}</div></div>
+      <div><div class="fl">Priority actions</div>${p.actions.map(a=>`<div style="font-size:12px;color:var(--text2);display:flex;gap:6px;margin-top:4px"><span style="color:var(--accent)">→</span><span>${escCareer(a)}</span></div>`).join('')}</div>
+    </div>`).join('')}
+  </div>
   <div class="grid2">
-    <div>
-      <div style="font-size:18px;font-weight:500;margin-bottom:18px">📍 Your Roadmap</div>
-      ${CAREER.map(c=>`<div class="tl-item"><div class="tl-dot">${c.icon}</div>
-        <div class="tl-content"><div class="year-tag">${c.y} · ${c.phase}</div>
-        <div style="font-weight:500;font-size:15px;margin:3px 0">${c.title}</div>
-        ${c.items.map(i=>`<div style="font-size:12px;color:var(--text2);display:flex;gap:5px;margin-top:3px"><span style="color:var(--accent)">→</span>${i}</div>`).join('')}
-        </div></div>`).join('')}
-    </div>
-    <div>
-      <div style="font-size:18px;font-weight:500;margin-bottom:18px">🎯 Scholarships for Your Path</div>
-      ${spScholarshipPool().slice(0,6).map(s=>`<div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:12px 14px;margin-bottom:8px;display:flex;gap:10px;align-items:center">
+    <div class="card">
+      <div class="sec-title">Scholarships that can support these paths</div>
+      <p class="sec-sub" style="margin-bottom:14px">Scholarships are shown as strategic enablers, not guarantees of a specific career outcome.</p>
+      ${spScholarshipPool().slice(0,6).map(s=>`<div style="background:var(--bg3);border:1px solid var(--border);border-radius:12px;padding:12px 14px;margin-bottom:8px;display:flex;gap:10px;align-items:center">
         <div style="font-size:22px;flex-shrink:0">🎓</div>
         <div style="flex:1"><div style="font-size:13px;font-weight:500;margin-bottom:1px">${spEsc(s.name)}</div><div style="font-size:11px;color:var(--text3)">${spEsc(s.funding||s.amt||'Funding details')} · ${spEsc(s.deadline||s.dl||'Deadline varies')}</div></div>
-        <div style="text-align:right"><div style="font-size:15px;font-weight:700;color:var(--accent)">Fit</div><div style="font-size:10px;color:var(--text3)">score</div></div>
       </div>`).join('')}
-      <div class="card" style="margin-top:14px">
-        <div style="font-size:22px;margin-bottom:8px">📊</div>
-        <div style="font-weight:500;margin-bottom:4px">Career Alignment Score</div>
-        <p style="font-size:12px;color:var(--text2);margin-bottom:14px">Your profile aligns strongly with research and academic paths internationally.</p>
-        ${[['Academia / Research',92,'pf-teal'],['Tech Industry',88,'pf-orange'],['Government / Policy',74,'pf-purple'],['NGO / Development',70,'pf-teal']].map(([l,v,c])=>`
-          <div style="margin-bottom:10px">
-            <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--text2);margin-bottom:3px"><span>${l}</span><span style="color:var(--accent)">${v}%</span></div>
-            <div class="prog-track"><div class="prog-fill ${c}" style="width:${v}%"></div></div>
-          </div>`).join('')}
-      </div>
+    </div>
+    <div class="card">
+      <div class="sec-title">How ScholarsPath uses this model</div>
+      <p style="font-size:13px;color:var(--text2);line-height:1.65;margin-top:8px">The model uses the student’s field, degree level, graduation year, preferred zones, work style, startup interest, risk level, salary priority, scholarship goals, and impact plan. It creates three plausible directions so students can compare stable employment, expert leadership, and entrepreneurship without being forced into one future.</p>
+      <div class="alert alert-i" style="margin-top:14px;margin-bottom:0"><span>✦</span><span>The best use of this section is decision support: discuss the plans with mentors, compare them with real labor-market research, and choose the path that fits your values and opportunities.</span></div>
     </div>
   </div>`;
 }
