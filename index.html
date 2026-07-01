@@ -240,6 +240,29 @@ textarea.fi{resize:vertical;min-height:80px}
 .peer-danger{background:#fc814a;color:#0a0f1a}
 @media(max-width:720px){.peer-call-grid{grid-template-columns:1fr}.peer-video-wrap{min-height:180px}.peer-video-wrap video{min-height:180px}}
 
+
+/* ===== Scholars Mentors Marketplace ===== */
+.mentor-tabs{display:flex;gap:4px;background:var(--bg3);border-radius:12px;padding:4px;margin-bottom:18px;flex-wrap:wrap}
+.mentor-tab{border:0;background:transparent;color:var(--text3);border-radius:9px;padding:9px 14px;font-family:inherit;cursor:pointer;font-size:13px}
+.mentor-tab.active{background:var(--card2);color:var(--accent)}
+.mentor-card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:18px;margin-bottom:12px;transition:.2s;cursor:pointer}
+.mentor-card:hover{border-color:rgba(79,209,197,.35);transform:translateY(-1px)}
+.mentor-card.sel{border-color:var(--accent);box-shadow:0 0 0 2px rgba(79,209,197,.12)}
+.mentor-head{display:flex;gap:13px;align-items:flex-start}
+.mentor-photo{width:52px;height:52px;border-radius:50%;background:linear-gradient(135deg,var(--accent),var(--accent3));display:flex;align-items:center;justify-content:center;font-weight:800;color:#061018;flex-shrink:0}
+.mentor-name{font-size:16px;font-weight:650;margin-bottom:1px}
+.mentor-line{font-size:12.5px;color:var(--text3);line-height:1.45}
+.mentor-price{font-size:20px;font-weight:800;color:var(--accent)}
+.mentor-price small{font-size:11px;color:var(--text3);font-weight:500}
+.mentor-stars{color:var(--accent2);font-size:13px;letter-spacing:1px}
+.mentor-status{display:inline-flex;align-items:center;gap:5px;border-radius:20px;padding:3px 9px;font-size:11px;border:1px solid var(--border);color:var(--text2)}
+.mentor-status.verified{color:#5fd38a;border-color:rgba(95,211,138,.35);background:rgba(95,211,138,.08)}
+.mentor-status.pending{color:var(--accent2);border-color:rgba(246,173,85,.35);background:rgba(246,173,85,.08)}
+.mentor-chiprow{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+.mentor-chip{font-size:11.5px;border-radius:7px;padding:3px 8px;border:1px solid var(--border);color:var(--text2);background:var(--bg3)}
+.mentor-detail{position:sticky;top:20px}
+@media(max-width:768px){.mentor-detail{position:static}.mentor-head{align-items:flex-start}}
+
 </style>
 </head>
 <body>
@@ -361,6 +384,7 @@ textarea.fi{resize:vertical;min-height:80px}
     <button class="nav-btn active" id="nb-dashboard" onclick="showPage('dashboard')">⊞<span class="nav-tip">Dashboard</span></button>
     <button class="nav-btn" id="nb-matches" onclick="showPage('matches')">🎯<span class="nav-tip">Matches</span></button>
     <button class="nav-btn" id="nb-peers" onclick="showPage('peers')">🤝<span class="nav-tip">Peers</span></button>
+    <button class="nav-btn" id="nb-mentors" onclick="showPage('mentors')">🎓<span class="nav-tip">Mentors</span></button>
     <button class="nav-btn" id="nb-preapp" onclick="showPage('preapp')">📄<span class="nav-tip">Pre-Application</span></button>
     <button class="nav-btn" id="nb-news" onclick="showPage('news')">📰<span class="nav-tip">News</span><span class="notif"></span></button>
     <button class="nav-btn" id="nb-mental" onclick="showPage('mental')">💙<span class="nav-tip">Wellness</span></button>
@@ -373,6 +397,7 @@ textarea.fi{resize:vertical;min-height:80px}
     <div class="page active" id="page-dashboard"></div>
     <div class="page" id="page-matches"></div>
     <div class="page" id="page-peers"></div>
+    <div class="page" id="page-mentors"></div>
     <div class="page" id="page-preapp"></div>
     <div class="page" id="page-news"></div>
     <div class="page" id="page-mental"></div>
@@ -612,6 +637,15 @@ let wConvo=[{from:'ai',text:"Hi! I'm here to support you through your scholarshi
 let ivMode='setup',ivIdx=0,ivAnswers=[];
 let isRec=false,recInt=null,recSec=0;
 let mFilter='All',nFilter='All';
+let mentorProfiles=[];
+let mentorReviews=[];
+let mentorBookings=[];
+let mentorMyProfile=null;
+let mentorsLoaded=false;
+let mentorsError='';
+let mentorSelectedId=null;
+let mentorView='find';
+let mentorBusy=false;
 
 // ── SCREENS ───────────────────────────────────────────────────────────────────
 function showScreen(id){
@@ -683,7 +717,7 @@ function initApp(){
   renderPage('dashboard');
 }
 function renderPage(id){
-  const map={dashboard:rDash,matches:rMatches,peers:rPeers,preapp:rPreApp,news:rNews,mental:rMental,tips:rTips,interview:rInterview,career:rCareer};
+  const map={dashboard:rDash,matches:rMatches,peers:rPeers,mentors:rMentors,preapp:rPreApp,news:rNews,mental:rMental,tips:rTips,interview:rInterview,career:rCareer};
   if(map[id]) map[id]();
 }
 
@@ -1903,6 +1937,204 @@ function rPeers(){
     </div>
     <div id="chat-panel">${buildChat()}</div>
   </div>`;
+}
+
+
+
+// ── SCHOLARS MENTORS MARKETPLACE ─────────────────────────────────────────────
+function mentorSetView(v){mentorView=v;mentorSelectedId=null;rMentors();}
+function mentorSplit(v){return String(v||'').split(',').map(function(x){return x.trim();}).filter(Boolean);}
+function mentorMoney(v){var n=Number(v||0);return '$'+(isNaN(n)?0:n).toFixed(n%1?2:0);}
+function mentorStars(avg){var n=Number(avg||0);var full=Math.round(n);var s='';for(var i=1;i<=5;i++)s+=i<=full?'★':'☆';return '<span class="mentor-stars">'+s+'</span>'+(n?'<span style="font-size:12px;color:var(--text3);margin-left:5px">'+n.toFixed(1)+'</span>':'<span style="font-size:12px;color:var(--text3);margin-left:5px">New</span>');}
+function mentorInitials(n){n=String(n||'Mentor').trim();var parts=n.split(/\s+/);return ((parts[0]||'M')[0]+(parts[1]||'')[0]).toUpperCase();}
+function mentorPathLabel(p){return p==='scholarship_winner'?'Successful scholarship candidate':p==='verified_successful_applicant'?'2+ verified successful applications':'Application mentor';}
+function mentorStatusClass(s){return s==='verified'?'verified':(s==='pending'?'pending':'');}
+function mentorAvg(id){var rs=mentorReviews.filter(function(r){return r.mentor_id===id;});if(!rs.length)return {avg:0,count:0};var sum=rs.reduce(function(a,r){return a+Number(r.rating||0);},0);return {avg:sum/rs.length,count:rs.length};}
+function mentorGetName(id){var p=mentorProfiles.find(function(x){return x.user_id===id;});return p?p.display_name:'Student';}
+async function mentorCurrentUser(){if(!sb)return null;var u=await sb.auth.getUser();return u&&u.data?u.data.user:null;}
+async function mentorLoad(force){
+  if(mentorsLoaded&&!force) return;
+  mentorsError='';
+  try{
+    if(!sb) throw new Error('Supabase is not ready.');
+    var user=await mentorCurrentUser();
+    var prof=await sb.from('mentor_profiles').select('*').eq('is_visible',true).order('created_at',{ascending:false});
+    if(prof.error) throw prof.error;
+    mentorProfiles=prof.data||[];
+    var rev=await sb.from('mentor_reviews').select('id,mentor_id,student_id,booking_id,rating,comment,created_at').order('created_at',{ascending:false});
+    mentorReviews=rev.error?[]:(rev.data||[]);
+    mentorMyProfile=null;
+    if(user){
+      var mine=await sb.from('mentor_profiles').select('*').eq('user_id',user.id).maybeSingle();
+      if(!mine.error&&mine.data){mentorMyProfile=mine.data;if(!mentorProfiles.some(function(p){return p.user_id===user.id;}))mentorProfiles.unshift(mine.data);}
+      var book=await sb.from('mentor_bookings').select('*').or('student_id.eq.'+user.id+',mentor_id.eq.'+user.id).order('created_at',{ascending:false});
+      mentorBookings=book.error?[]:(book.data||[]);
+    }else mentorBookings=[];
+    mentorsLoaded=true;
+  }catch(e){mentorsLoaded=true;mentorsError=e.message||String(e);console.warn('Mentors load failed',e);}
+}
+function rMentors(){
+  const pg=document.getElementById('page-mentors');
+  if(!mentorsLoaded){
+    pg.innerHTML=`${topbar('Scholars <em>Mentors</em>','Paid scholarship mentorship from verified successful applicants')}
+    <div class="alert alert-i"><span>✦</span><span>Loading Scholars Mentors marketplace...</span></div>`;
+    mentorLoad(false).then(function(){rMentors();});return;
+  }
+  pg.innerHTML=`${topbar('Scholars <em>Mentors</em>','Find paid mentors who have won scholarships or completed at least two verified successful applications')}
+  <div class="alert alert-i"><span>✦</span><span>This is a marketplace-style mentorship system: mentor profiles, hourly pricing, intro text/video, session requests, ratings, reviews and payment status. Actual card/payment collection will be connected later through a payment provider.</span></div>
+  <div class="mentor-tabs">
+    <button class="mentor-tab ${mentorView==='find'?'active':''}" onclick="mentorSetView('find')">Find Mentors</button>
+    <button class="mentor-tab ${mentorView==='become'?'active':''}" onclick="mentorSetView('become')">Become a Mentor</button>
+    <button class="mentor-tab ${mentorView==='sessions'?'active':''}" onclick="mentorSetView('sessions')">My Sessions</button>
+  </div>
+  ${mentorsError?`<div class="alert alert-w"><span>⚠️</span><span>${spEsc(mentorsError)}</span></div>`:''}
+  ${mentorView==='find'?mentorFindHtml():mentorView==='become'?mentorBecomeHtml():mentorSessionsHtml()}`;
+}
+function mentorFindHtml(){
+  var userId=(mentorMyProfile&&mentorMyProfile.user_id)||'';
+  var list=mentorProfiles.filter(function(m){return m.user_id!==userId&&m.is_available!==false;});
+  list.sort(function(a,b){
+    var av=a.verification_status==='verified'?1:0,bv=b.verification_status==='verified'?1:0;if(av!==bv)return bv-av;
+    var ar=mentorAvg(a.user_id),br=mentorAvg(b.user_id);if(ar.avg!==br.avg)return br.avg-ar.avg;
+    return Number(b.successful_applications_count||0)-Number(a.successful_applications_count||0);
+  });
+  var sel=list.find(function(m){return m.user_id===mentorSelectedId;})||list[0]||null;
+  if(!mentorSelectedId&&sel)mentorSelectedId=sel.user_id;
+  return `<div class="grid2">
+    <div>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;gap:10px;flex-wrap:wrap">
+        <div><div class="sec-title">Available scholarship mentors</div><div class="sec-sub">Verified mentors appear first; new mentors can still receive requests after profile review.</div></div>
+        <button class="btn btn-outline" style="padding:7px 12px;font-size:12px" onclick="mentorsLoaded=false;rMentors()">Refresh</button>
+      </div>
+      ${list.length?list.map(mentorCardHtml).join(''):`<div class="card"><div style="font-size:32px;margin-bottom:8px">🎓</div><div style="font-weight:600;margin-bottom:4px">No visible mentors yet</div><p style="color:var(--text2);font-size:13px">Be the first verified mentor, or invite successful scholarship candidates to register.</p></div>`}
+    </div>
+    <div class="mentor-detail">${sel?mentorDetailHtml(sel):`<div class="card"><p style="color:var(--text3)">Select a mentor to view details and request a paid session.</p></div>`}</div>
+  </div>`;
+}
+function mentorCardHtml(m){
+  var r=mentorAvg(m.user_id);var tags=spArr(m.languages).concat(spArr(m.expertise_fields)).slice(0,4);
+  return `<div class="mentor-card ${mentorSelectedId===m.user_id?'sel':''}" onclick="mentorSelectedId='${spEsc(m.user_id)}';rMentors()">
+    <div class="mentor-head"><div class="mentor-photo">${spEsc(mentorInitials(m.display_name))}</div><div style="flex:1">
+      <div style="display:flex;justify-content:space-between;gap:12px;align-items:flex-start"><div><div class="mentor-name">${spEsc(m.display_name)}</div><div class="mentor-line">${spEsc(m.headline||mentorPathLabel(m.mentor_path))}</div></div><div class="mentor-price">${mentorMoney(m.hourly_rate_usd)}<small>/hr</small></div></div>
+      <div style="margin-top:7px">${mentorStars(r.avg)} <span style="font-size:12px;color:var(--text3)">(${r.count} reviews)</span></div>
+      <div style="margin-top:7px"><span class="mentor-status ${mentorStatusClass(m.verification_status)}">${m.verification_status==='verified'?'✓ Verified':m.verification_status==='pending'?'⏳ Pending verification':'Profile review needed'}</span> <span style="font-size:12px;color:var(--text3);margin-left:6px">${Number(m.successful_applications_count||0)} successful application(s)</span></div>
+      <div class="mentor-chiprow">${tags.map(function(t){return '<span class="mentor-chip">'+spEsc(t)+'</span>';}).join('')}</div>
+    </div></div>
+  </div>`;
+}
+function mentorDetailHtml(m){
+  var r=mentorAvg(m.user_id);
+  var reviews=mentorReviews.filter(function(x){return x.mentor_id===m.user_id;}).slice(0,3);
+  return `<div class="card">
+    <div class="mentor-head" style="margin-bottom:14px"><div class="mentor-photo" style="width:62px;height:62px">${spEsc(mentorInitials(m.display_name))}</div><div style="flex:1"><div class="mentor-name" style="font-size:19px">${spEsc(m.display_name)}</div><div class="mentor-line">${spEsc(m.headline||mentorPathLabel(m.mentor_path))}</div><div style="margin-top:6px">${mentorStars(r.avg)} <span style="font-size:12px;color:var(--text3)">${r.count} review(s)</span></div></div></div>
+    <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:13px"><span class="mentor-status ${mentorStatusClass(m.verification_status)}">${m.verification_status==='verified'?'✓ Verified mentor':m.verification_status==='pending'?'⏳ Verification pending':'Unverified'}</span><span class="mentor-status">${mentorPathLabel(m.mentor_path)}</span></div>
+    <p style="font-size:13px;color:var(--text2);line-height:1.65;margin-bottom:14px">${spEsc(m.intro_text||'This mentor has not added a full introduction yet.')}</p>
+    ${m.intro_video_url?`<a href="${spEsc(m.intro_video_url)}" target="_blank" class="btn btn-outline" style="margin-bottom:14px">▶ Watch intro video</a>`:''}
+    <div class="grid2" style="margin-bottom:14px">
+      <div style="background:var(--bg3);border:1px solid var(--border);border-radius:12px;padding:12px"><div class="sec-sub">Standard session</div><div class="mentor-price">${mentorMoney(m.hourly_rate_usd)}<small>/hour</small></div></div>
+      <div style="background:var(--bg3);border:1px solid var(--border);border-radius:12px;padding:12px"><div class="sec-sub">Trial session</div><div class="mentor-price" style="color:var(--accent2)">${mentorMoney(m.trial_rate_usd)}<small>/25 min</small></div></div>
+    </div>
+    <div class="mentor-chiprow" style="margin-bottom:14px">${spArr(m.languages).map(function(t){return '<span class="mentor-chip">🌐 '+spEsc(t)+'</span>';}).join('')}${spArr(m.expertise_fields).map(function(t){return '<span class="mentor-chip">🎯 '+spEsc(t)+'</span>';}).join('')}</div>
+    <div style="border-top:1px solid var(--border);padding-top:14px;margin-top:4px">
+      <div class="sec-title" style="font-size:16px;margin-bottom:10px">Request a paid session</div>
+      <div class="grid2"><div class="fg"><label class="fl">Session Type</label><select class="fi" id="mentor-session-type"><option value="trial">Trial — 25 minutes</option><option value="standard">Standard — 60 minutes</option></select></div><div class="fg"><label class="fl">Preferred Date/Time</label><input class="fi" id="mentor-session-time" type="datetime-local"></div></div>
+      <div class="fg"><label class="fl">Message to mentor</label><textarea class="fi" id="mentor-session-note" placeholder="Explain what you need: essay review, interview prep, scholarship strategy..."></textarea></div>
+      <button class="btn btn-primary" style="width:100%;justify-content:center" onclick="mentorBook('${spEsc(m.user_id)}')">Request Session & Continue to Payment</button>
+      <div class="sec-sub" style="margin-top:8px">Payment status will be stored now. Real checkout will be connected in the payments phase.</div>
+    </div>
+    ${reviews.length?`<div style="border-top:1px solid var(--border);margin-top:16px;padding-top:14px"><div class="sec-title" style="font-size:16px;margin-bottom:10px">Recent reviews</div>${reviews.map(function(rv){return `<div style="background:var(--bg3);border-radius:10px;padding:10px;margin-bottom:8px"><div>${mentorStars(rv.rating)}</div><div style="font-size:12.5px;color:var(--text2);margin-top:4px">${spEsc(rv.comment||'No written review')}</div></div>`;}).join('')}</div>`:''}
+  </div>`;
+}
+function mentorBecomeHtml(){
+  var m=mentorMyProfile||{};
+  return `<div class="grid2"><div class="card">
+    <div style="font-size:30px;margin-bottom:8px">🎓</div><div class="sec-title">Apply as a Scholars Mentor</div>
+    <p class="sec-sub" style="margin-bottom:16px">Mentors are paid by students. You qualify if you are a successful scholarship candidate or you have at least two verified successful applications.</p>
+    <div class="fg"><label class="fl">Display Name</label><input class="fi" id="mentor-name" value="${spEsc(m.display_name||profile.name||'')}"></div>
+    <div class="fg"><label class="fl">Headline</label><input class="fi" id="mentor-headline" value="${spEsc(m.headline||'Scholarship application mentor')}"></div>
+    <div class="grid2"><div class="fg"><label class="fl">Mentor Qualification</label><select class="fi" id="mentor-path"><option value="scholarship_winner" ${m.mentor_path==='scholarship_winner'?'selected':''}>I won a scholarship</option><option value="verified_successful_applicant" ${m.mentor_path==='verified_successful_applicant'?'selected':''}>I have 2+ successful applications</option></select></div><div class="fg"><label class="fl">Successful Applications Count</label><input class="fi" id="mentor-count" type="number" min="0" value="${spEsc(m.successful_applications_count||2)}"></div></div>
+    <div class="grid2"><div class="fg"><label class="fl">Hourly Rate USD</label><input class="fi" id="mentor-rate" type="number" min="0" step="1" value="${spEsc(m.hourly_rate_usd||15)}"></div><div class="fg"><label class="fl">Trial Rate USD</label><input class="fi" id="mentor-trial" type="number" min="0" step="1" value="${spEsc(m.trial_rate_usd||5)}"></div></div>
+    <div class="fg"><label class="fl">Languages</label><input class="fi" id="mentor-langs" placeholder="English, French, Korean" value="${spEsc(spArr(m.languages).join(', ')||'English')}"></div>
+    <div class="fg"><label class="fl">Expertise Fields</label><input class="fi" id="mentor-fields" placeholder="Erasmus Mundus, essays, interviews, GKS" value="${spEsc(spArr(m.expertise_fields).join(', '))}"></div>
+    <div class="fg"><label class="fl">Self Introduction</label><textarea class="fi" id="mentor-intro" placeholder="Tell students who you are, what scholarships you know, and how you can help them." style="min-height:110px">${spEsc(m.intro_text||'')}</textarea></div>
+    <div class="fg"><label class="fl">Intro Video URL</label><input class="fi" id="mentor-video" placeholder="YouTube, Vimeo, or other intro link" value="${spEsc(m.intro_video_url||'')}"></div>
+    <div class="fg"><label class="fl">Verification Summary</label><textarea class="fi" id="mentor-proof" placeholder="List scholarships won or successful applications, years, institutions, and what you can prove.">${spEsc(m.verification_summary||'')}</textarea></div>
+    <label style="display:flex;align-items:center;gap:8px;margin-bottom:16px;color:var(--text2);font-size:13px"><input type="checkbox" id="mentor-visible" ${m.is_visible!==false?'checked':''}> Make my mentor profile visible after saving</label>
+    <button class="btn btn-primary" style="width:100%;justify-content:center" onclick="mentorSaveProfile()">Save Mentor Profile</button>
+    <div id="mentor-save-msg" class="sec-sub" style="margin-top:10px;min-height:16px"></div>
+  </div>
+  <div class="card"><div class="sec-title">Marketplace rules</div><div class="sec-sub" style="margin-top:8px;line-height:1.7">
+    <p>✓ Mentors set their own price.</p><p>✓ Students request and pay for sessions.</p><p>✓ Students can review mentors after completed sessions.</p><p>✓ Verification status protects trust.</p><p>✓ ScholarsPath can later take a platform commission when payments are connected.</p></div>
+    ${m.user_id?`<div style="margin-top:16px"><span class="mentor-status ${mentorStatusClass(m.verification_status)}">${m.verification_status==='verified'?'✓ Verified':m.verification_status==='pending'?'⏳ Pending verification':'Review needed'}</span></div>`:''}
+  </div></div>`;
+}
+async function mentorSaveProfile(){
+  if(mentorBusy)return;mentorBusy=true;
+  var msg=document.getElementById('mentor-save-msg');if(msg)msg.textContent='Saving...';
+  try{
+    var user=await mentorCurrentUser();if(!user)throw new Error('Please log in first.');
+    var path=document.getElementById('mentor-path').value;
+    var count=Number(document.getElementById('mentor-count').value||0);
+    if(path==='verified_successful_applicant'&&count<2)throw new Error('This mentor type requires at least two successful applications.');
+    var row={
+      user_id:user.id,
+      display_name:document.getElementById('mentor-name').value.trim()||profile.name||'Scholar Mentor',
+      headline:document.getElementById('mentor-headline').value.trim()||'Scholarship application mentor',
+      mentor_path:path,
+      successful_applications_count:count,
+      nationality:profile.nat||'',field:profile.field||'',
+      languages:mentorSplit(document.getElementById('mentor-langs').value),
+      expertise_fields:mentorSplit(document.getElementById('mentor-fields').value),
+      hourly_rate_usd:Number(document.getElementById('mentor-rate').value||0),
+      trial_rate_usd:Number(document.getElementById('mentor-trial').value||0),
+      intro_text:document.getElementById('mentor-intro').value.trim(),
+      intro_video_url:document.getElementById('mentor-video').value.trim(),
+      verification_summary:document.getElementById('mentor-proof').value.trim(),
+      verification_status:(mentorMyProfile&&mentorMyProfile.verification_status)||'pending',
+      is_visible:document.getElementById('mentor-visible').checked,
+      is_available:true
+    };
+    var res=await sb.from('mentor_profiles').upsert(row);
+    if(res.error)throw res.error;
+    mentorsLoaded=false;mentorView='become';
+    await mentorLoad(true);rMentors();
+  }catch(e){if(msg)msg.textContent=e.message||String(e);else alert(e.message||e);}finally{mentorBusy=false;}
+}
+async function mentorBook(mentorId){
+  if(mentorBusy)return;mentorBusy=true;
+  try{
+    var user=await mentorCurrentUser();if(!user)throw new Error('Please log in first.');
+    var m=mentorProfiles.find(function(x){return x.user_id===mentorId;});if(!m)throw new Error('Mentor not found.');
+    var type=document.getElementById('mentor-session-type').value;
+    var duration=type==='trial'?25:60;
+    var price=type==='trial'?Number(m.trial_rate_usd||0):Number(m.hourly_rate_usd||0);
+    var when=document.getElementById('mentor-session-time').value;
+    if(!when)throw new Error('Please choose a preferred date/time.');
+    var note=document.getElementById('mentor-session-note').value.trim();
+    var res=await sb.from('mentor_bookings').insert({student_id:user.id,mentor_id:mentorId,session_type:type,requested_start:new Date(when).toISOString(),duration_minutes:duration,price_amount:price,currency:'USD',status:'requested',payment_status:'pending',student_notes:note});
+    if(res.error)throw res.error;
+    alert('Session requested. Payment status is pending until checkout is connected.');
+    mentorsLoaded=false;mentorView='sessions';await mentorLoad(true);rMentors();
+  }catch(e){alert('Could not request session: '+(e.message||e));}finally{mentorBusy=false;}
+}
+function mentorSessionsHtml(){
+  if(!mentorBookings.length)return `<div class="card"><div style="font-size:32px;margin-bottom:8px">📅</div><div style="font-weight:600;margin-bottom:4px">No sessions yet</div><p class="sec-sub">Request a mentor session, or become a mentor and wait for students to book you.</p></div>`;
+  var myId=mentorMyProfile?mentorMyProfile.user_id:'';
+  return `<div class="grid2">${mentorBookings.map(function(b){
+    var asMentor=b.mentor_id===myId;
+    var other=asMentor?('Student '+String(b.student_id).slice(0,6)):mentorGetName(b.mentor_id);
+    return `<div class="card"><div style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start"><div><div class="sec-title" style="font-size:16px">${asMentor?'Mentoring request':'Mentor session'}</div><div class="sec-sub">With ${spEsc(other)}</div></div><span class="badge ${b.status==='completed'?'bg':b.status==='accepted'?'bp':'bo'}">${spEsc(b.status)}</span></div>
+    <div style="margin-top:12px;font-size:13px;color:var(--text2)"><div>🗓 ${spEsc(new Date(b.requested_start).toLocaleString())}</div><div>⏱ ${b.duration_minutes} min · ${mentorMoney(b.price_amount)} ${spEsc(b.currency||'USD')}</div><div>💳 Payment: ${spEsc(b.payment_status||'pending')}</div>${b.student_notes?`<div style="margin-top:8px;background:var(--bg3);border-radius:8px;padding:9px">${spEsc(b.student_notes)}</div>`:''}</div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:14px">${asMentor&&b.status==='requested'?`<button class="btn btn-primary" onclick="mentorUpdateBooking(${b.id},'accepted')">Accept</button><button class="btn btn-outline" onclick="mentorUpdateBooking(${b.id},'declined')">Decline</button>`:''}${b.status==='accepted'?`<button class="btn btn-outline" onclick="mentorUpdateBooking(${b.id},'completed')">Mark Completed</button>`:''}${!asMentor&&b.status==='completed'?`<button class="btn btn-outline" onclick="mentorReviewPrompt(${b.id},'${spEsc(b.mentor_id)}')">Leave Review</button>`:''}</div></div>`;
+  }).join('')}</div>`;
+}
+async function mentorUpdateBooking(id,status){
+  try{var res=await sb.from('mentor_bookings').update({status:status}).eq('id',id);if(res.error)throw res.error;mentorsLoaded=false;await mentorLoad(true);rMentors();}catch(e){alert('Could not update session: '+(e.message||e));}
+}
+async function mentorReviewPrompt(bookingId,mentorId){
+  var rating=Number(prompt('Rating from 1 to 5 stars:','5')||0);if(!rating||rating<1||rating>5)return;
+  var comment=prompt('Short review:','Helpful mentor.');
+  try{var user=await mentorCurrentUser();if(!user)throw new Error('Please log in.');var res=await sb.from('mentor_reviews').insert({booking_id:bookingId,mentor_id:mentorId,student_id:user.id,rating:rating,comment:comment||''});if(res.error)throw res.error;mentorsLoaded=false;await mentorLoad(true);rMentors();}catch(e){alert('Could not save review: '+(e.message||e));}
 }
 
 // ── PRE-APPLICATION ───────────────────────────────────────────────────────────
