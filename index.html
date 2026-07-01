@@ -276,7 +276,27 @@ textarea.fi{resize:vertical;min-height:80px}
 .app-check{background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:9px 10px;display:flex;align-items:center;gap:8px;font-size:13px;color:var(--text2)}
 .app-check input{accent-color:var(--accent)}
 .app-note{width:100%;margin-top:12px;min-height:62px}
-.app-status{min-width:150px}
+.app-status{min-width:170px}
+
+.app-status-block{background:var(--bg3);border:1px solid var(--border);border-radius:12px;padding:10px 12px;margin-top:10px}
+.app-status-label{font-size:11px;color:var(--accent);text-transform:uppercase;letter-spacing:.7px;font-weight:700;margin-bottom:6px;display:block}
+.app-progress-wrap{text-align:center;min-width:96px}
+.app-progress-title{font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px}
+.app-upload-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-top:12px}
+@media(max-width:760px){.app-upload-grid{grid-template-columns:1fr}}
+.app-upload{background:var(--bg3);border:1px solid var(--border);border-radius:12px;padding:12px}
+.app-upload-title{font-size:12px;color:var(--text);font-weight:650;margin-bottom:4px}
+.app-upload-desc{font-size:11px;color:var(--text3);line-height:1.4;margin-bottom:8px}
+.app-upload input[type=file]{width:100%;font-size:11px;color:var(--text2)}
+.app-doc-row{display:flex;justify-content:space-between;gap:8px;align-items:center;background:rgba(79,209,197,.06);border:1px solid rgba(79,209,197,.16);border-radius:8px;padding:7px 9px;margin-top:7px;font-size:11.5px;color:var(--text2)}
+.app-deep-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+@media(max-width:760px){.app-deep-grid{grid-template-columns:1fr}}
+.app-section-card{background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:13px;margin:10px 0;color:#2d3748}
+.app-section-card h4{font-size:13px;margin-bottom:7px;color:#2d3748}
+.app-section-card ul{padding-left:18px;margin:0}.app-section-card li{font-size:12.5px;line-height:1.55;margin:3px 0;color:#4a5568}
+.app-essay-box{background:#f7fafc;border-radius:8px;padding:16px;font-size:13px;line-height:1.75;color:#4a5568;border-left:3px solid #4fd1c5}
+.app-analysis-note{background:#edfdfd;border:1px solid #b2f5ea;border-radius:8px;padding:12px;font-size:12.5px;line-height:1.6;color:#285e61;margin:10px 0}
+
 
 </style>
 </head>
@@ -665,6 +685,7 @@ let appView='tracker';
 let appTrackers=[];
 let appSavedRows=[];
 let appScholarshipMap={};
+let appDocumentMap={};
 let applicationsLoaded=false;
 let applicationsError='';
 
@@ -2175,6 +2196,23 @@ function appProgress(t){var keys=['documents_ready','personal_statement_ready','
 function appStatusLabel(s){return ({planning:'Planning',drafting:'Drafting',review:'Under review',ready:'Ready to submit',submitted:'Submitted',accepted:'Accepted',rejected:'Not selected'})[s]||'Planning';}
 function appScholarName(id){var s=appScholarshipMap[String(id)];return s?s.name:'Scholarship';}
 function appScholarDeadline(id,t){var s=appScholarshipMap[String(id)];return t&&t.deadline_date?appDateLabel(t.deadline_date):(s?(s.deadline_text||appDateLabel(s.deadline_date)):'Deadline varies');}
+function appTrackerForScholarship(sid){return appTrackers.find(function(t){return String(t.scholarship_id)===String(sid);});}
+function appDocTypes(){return [
+  {key:'official_application_form',label:'Official application form',desc:'Provider or university form, if required'},
+  {key:'passport_id',label:'Passport / ID',desc:'Identity page or national ID'},
+  {key:'academic_transcripts',label:'Academic transcripts',desc:'Official or certified grades'},
+  {key:'degree_certificates',label:'Degree certificates',desc:'Diploma or proof of expected graduation'},
+  {key:'cv_resume',label:'CV / résumé',desc:'Academic or professional CV'},
+  {key:'personal_statement',label:'Personal statement / SOP',desc:'Final essay draft'},
+  {key:'recommendation_letter_1',label:'Recommendation letter 1',desc:'Academic/professional recommender'},
+  {key:'recommendation_letter_2',label:'Recommendation letter 2',desc:'Second recommender, if required'},
+  {key:'language_test',label:'Language test',desc:'IELTS, TOEFL, Duolingo, etc.'},
+  {key:'research_proposal',label:'Research proposal / study plan',desc:'For research degrees or thesis programs'},
+  {key:'portfolio_publications',label:'Portfolio / publications',desc:'Art, design, writing, papers, projects'},
+  {key:'financial_documents',label:'Financial documents',desc:'Need statement, bank docs, sponsor docs if required'}
+];}
+function appDocLabel(k){var d=appDocTypes().find(function(x){return x.key===k;});return d?d.label:k;}
+function appDocsForTracker(id){return appDocumentMap[String(id)]||[];}
 async function appLoadApplications(force){
   if(applicationsLoaded&&!force)return;
   applicationsError='';
@@ -2189,7 +2227,6 @@ async function appLoadApplications(force){
     if(ids.length){
       var sch=await sb.from('scholarships').select('*').in('id',ids);
       if(!sch.error)(sch.data||[]).forEach(function(x){appScholarshipMap[String(x.id)]=x;});
-      // Create missing tracker rows for saved scholarships. This makes old saved scholarships usable too.
       for(var i=0;i<ids.length;i++){
         var sid=ids[i], sc=appScholarshipMap[String(sid)];
         await sb.from('application_tracker').upsert({user_id:user.id,scholarship_id:sid,status:'planning',deadline_date:sc&&sc.deadline_date?sc.deadline_date:null});
@@ -2198,6 +2235,12 @@ async function appLoadApplications(force){
     var tr=await sb.from('application_tracker').select('*').eq('user_id',user.id).order('updated_at',{ascending:false});
     if(tr.error)throw tr.error;
     appTrackers=tr.data||[];
+    appDocumentMap={};
+    var trIds=appTrackers.map(function(t){return Number(t.id);}).filter(Boolean);
+    if(trIds.length){
+      var docs=await sb.from('application_documents').select('*').in('application_tracker_id',trIds).order('uploaded_at',{ascending:false});
+      if(!docs.error){(docs.data||[]).forEach(function(d){var k=String(d.application_tracker_id);if(!appDocumentMap[k])appDocumentMap[k]=[];appDocumentMap[k].push(d);});}
+    }
     applicationsLoaded=true;
   }catch(e){applicationsLoaded=true;applicationsError=e.message||String(e);console.warn('Application load failed',e);}
 }
@@ -2219,6 +2262,35 @@ async function appSaveNotes(id){
   if(res.error){alert('Could not save notes: '+res.error.message);return;}
   alert('Notes saved.');
 }
+async function appSaveDeepInputs(id){
+  function v(k){var el=document.getElementById('deep-'+k+'-'+id);return el?el.value.trim():'';}
+  var patch={
+    target_university:v('university'),target_program:v('program'),university_profile:v('univprofile'),committee_priorities:v('committee'),
+    applicant_story:v('story'),academic_strengths:v('strengths'),leadership_impact:v('leadership'),career_impact_plan:v('impact'),financial_need_summary:v('financial')
+  };
+  var res=await sb.from('application_tracker').update(patch).eq('id',id);
+  if(res.error){alert('Could not save analysis: '+res.error.message);return false;}
+  var t=appTrackers.find(function(x){return Number(x.id)===Number(id);});if(t)Object.assign(t,patch);
+  return true;
+}
+async function appUploadDocument(trackerId,scholarshipId,docType,input){
+  try{
+    var file=input.files&&input.files[0];if(!file)return;
+    if(!sb)throw new Error('Supabase is not ready.');
+    var u=await sb.auth.getUser();var user=(u&&u.data)?u.data.user:null;if(!user)throw new Error('Please log in first.');
+    var safe=(file.name||'document').replace(/[^a-zA-Z0-9._-]/g,'_').slice(-90);
+    var path=user.id+'/'+trackerId+'/'+docType+'-'+Date.now()+'-'+safe;
+    var up=await sb.storage.from('application-documents').upload(path,file,{cacheControl:'3600',upsert:false});
+    if(up.error)throw up.error;
+    var ins=await sb.from('application_documents').insert({user_id:user.id,application_tracker_id:trackerId,scholarship_id:scholarshipId,document_type:docType,file_name:file.name,storage_path:path,mime_type:file.type||'',size_bytes:file.size||0,status:'uploaded'});
+    if(ins.error)throw ins.error;
+    applicationsLoaded=false;await appLoadApplications(true);rPreApp();
+  }catch(e){alert('Upload failed: '+(e.message||e));}
+}
+async function appDeleteDocument(id,path){
+  if(!confirm('Remove this uploaded document from the tracker?'))return;
+  try{await sb.storage.from('application-documents').remove([path]);var res=await sb.from('application_documents').delete().eq('id',id);if(res.error)throw res.error;applicationsLoaded=false;await appLoadApplications(true);rPreApp();}catch(e){alert('Could not delete document: '+(e.message||e));}
+}
 async function appRefresh(){applicationsLoaded=false;await appLoadApplications(true);rPreApp();}
 function rPreApp(){
   const pg=document.getElementById('page-preapp');
@@ -2227,11 +2299,11 @@ function rPreApp(){
     <div class="card"><div style="color:var(--text2)">Loading your applications...</div></div>`;
     appLoadApplications(false).then(rPreApp);return;
   }
-  pg.innerHTML=`${topbar('My <em>Applications</em>','Turn saved scholarships into real application workflows')}
-  <div class="alert alert-i"><span>✦</span><span>Each saved scholarship becomes an application tracker with status, deadline, document checklist, notes and a pre-application draft.</span></div>
+  pg.innerHTML=`${topbar('My <em>Applications</em>','Turn saved scholarships into complete international application files')}
+  <div class="alert alert-i"><span>✦</span><span>Each saved scholarship has an explicit application status, document upload space, checklist, notes and a deep pre-application builder.</span></div>
   <div class="app-tabs">
     <button class="app-tab ${appView==='tracker'?'active':''}" onclick="appSetView('tracker')">Application Tracker</button>
-    <button class="app-tab ${appView==='preapp'?'active':''}" onclick="appSetView('preapp')">Pre-Application Form</button>
+    <button class="app-tab ${appView==='preapp'?'active':''}" onclick="appSetView('preapp')">International Pre-Application Form</button>
   </div>
   ${applicationsError?`<div class="alert alert-w"><span>⚠️</span><span>${appEsc(applicationsError)}</span></div>`:''}
   ${appView==='tracker'?appTrackerHtml():appPreAppHtml()}`;
@@ -2256,21 +2328,23 @@ function appTrackerHtml(){
       <div class="app-head">
         <div style="flex:1;min-width:240px">
           <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:6px">
-            <span class="badge bg">${appEsc(appStatusLabel(t.status))}</span>
             <span class="tag">⏰ ${appEsc(appScholarDeadline(t.scholarship_id,t))}</span>
             ${s.host_country?`<span class="tag">🌍 ${appEsc(s.host_country)}</span>`:''}
           </div>
           <div style="font-size:18px;font-weight:650;margin-bottom:4px">${appEsc(appScholarName(t.scholarship_id))}</div>
           <div style="font-size:12.5px;color:var(--text3);line-height:1.5">${appEsc(s.provider||'Scholarship provider')} ${s.funding_type?'• '+appEsc(s.funding_type):''}</div>
-          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px">
+          <div class="app-status-block">
+            <label class="app-status-label">Application Status</label>
             <select class="fi app-status" onchange="appUpdateStatus(${Number(t.id)},this.value)">
               ${['planning','drafting','review','ready','submitted','accepted','rejected'].map(function(x){return `<option value="${x}" ${t.status===x?'selected':''}>${appStatusLabel(x)}</option>`;}).join('')}
             </select>
-            <button class="btn btn-outline" onclick="genPreApp(${Number(t.scholarship_id)})">📄 Draft form</button>
+          </div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px">
+            <button class="btn btn-outline" onclick="genPreAppFromTracker(${Number(t.id)})">📄 Draft international form</button>
             ${official&&official!=='#'?`<a class="btn btn-outline" href="${appEsc(official)}" target="_blank" rel="noopener">Official page</a>`:''}
           </div>
         </div>
-        <div class="app-progress" id="app-prog-${Number(t.id)}">${progress}%</div>
+        <div class="app-progress-wrap"><div class="app-progress-title">Requirements Progress</div><div class="app-progress" id="app-prog-${Number(t.id)}">${progress}%</div></div>
       </div>
       <div class="app-checklist">
         ${appCheck(t,'documents_ready','Core documents')}
@@ -2279,31 +2353,81 @@ function appTrackerHtml(){
         ${appCheck(t,'transcript_ready','Transcript')}
         ${appCheck(t,'language_test_ready','Language test')}
       </div>
+      <details style="margin-top:12px"><summary style="cursor:pointer;color:var(--accent);font-size:13px">Upload application documents</summary>${appUploadHtml(t)}</details>
       <textarea class="fi app-note" id="app-notes-${Number(t.id)}" placeholder="Notes, next steps, missing documents, mentor advice...">${appEsc(t.notes||'')}</textarea>
       <div style="margin-top:8px"><button class="btn btn-outline" onclick="appSaveNotes(${Number(t.id)})">Save notes</button></div>
     </div>`;
   }).join('');
 }
 function appCheck(t,key,label){return `<label class="app-check"><input type="checkbox" ${t[key]?'checked':''} onchange="appToggleDoc(${Number(t.id)},'${key}',this.checked)"><span>${label}</span></label>`;}
+function appUploadHtml(t){
+  var docs=appDocsForTracker(t.id);
+  var rows=appDocTypes().map(function(d){
+    var existing=docs.filter(function(x){return x.document_type===d.key;});
+    return `<div class="app-upload"><div class="app-upload-title">${appEsc(d.label)}</div><div class="app-upload-desc">${appEsc(d.desc)}</div><input type="file" onchange="appUploadDocument(${Number(t.id)},${Number(t.scholarship_id)},'${d.key}',this)">
+    ${existing.map(function(x){return `<div class="app-doc-row"><span>✓ ${appEsc(x.file_name||appDocLabel(x.document_type))}</span><button class="btn btn-ghost" style="padding:3px 6px;font-size:11px" onclick="appDeleteDocument(${Number(x.id)},'${appEsc(x.storage_path)}')">Remove</button></div>`;}).join('')}
+    </div>`;
+  }).join('');
+  return `<div class="app-upload-grid">${rows}</div>`;
+}
 function appPreAppHtml(){
-  const pool=spScholarshipPool();
-  return `<div class="card" style="max-width:560px">
-    <div style="font-size:44px;margin-bottom:12px">📄</div>
-    <h3 style="font-size:20px;font-weight:400;margin-bottom:8px">Generate Your Application Draft</h3>
-    <p style="color:var(--text2);font-size:13px;margin-bottom:18px">Select a saved scholarship or any active scholarship and ScholarsPath will pre-fill a draft application form from your profile.</p>
-    <div class="fg"><label class="fl">Target Scholarship</label>
-      <select class="fi" id="pa-sel"><option value="">Choose scholarship</option>${pool.map(function(s){return `<option value="${s.id}">${appEsc(s.name)}</option>`;}).join('')}</select>
-    </div>
-    <button class="btn btn-primary" style="width:100%;justify-content:center;padding:13px" onclick="genPreApp()">✨ Generate Pre-Application</button>
+  if(!appTrackers.length){return `<div class="card" style="max-width:620px"><div style="font-size:42px;margin-bottom:12px">📄</div><h3 style="font-size:20px;font-weight:400;margin-bottom:8px">Save a scholarship first</h3><p style="color:var(--text2);font-size:13px;margin-bottom:16px">The international pre-application form is built from a tracked application, because it needs the scholarship details, your profile and uploaded documents.</p><button class="btn btn-primary" onclick="showPage('matches')">Go to Matches →</button></div>`;}
+  return `<div class="card" style="max-width:980px">
+    <div style="font-size:44px;margin-bottom:12px">🌍</div>
+    <h3 style="font-size:20px;font-weight:400;margin-bottom:8px">International Standard Pre-Application Builder</h3>
+    <p style="color:var(--text2);font-size:13px;margin-bottom:18px">This builder follows the structure commonly expected by highly selective U.S. and European universities: identity, citizenship, academic record, program fit, documents, recommendations, essays, funding, declarations and upload spaces.</p>
+    <div class="fg"><label class="fl">Tracked Application</label><select class="fi" id="pa-tracker" onchange="appRenderDeepForm()"><option value="">Choose application</option>${appTrackers.map(function(t){return `<option value="${Number(t.id)}">${appEsc(appScholarName(t.scholarship_id))}</option>`;}).join('')}</select></div>
+    <div id="pa-deep-form" class="alert alert-i"><span>✦</span><span>Select an application. Then complete the university and personal analysis fields before generating the draft.</span></div>
   </div>`;
 }
+function appRenderDeepForm(){
+  var id=Number((document.getElementById('pa-tracker')||{}).value||0);var t=appTrackers.find(function(x){return Number(x.id)===id;});var box=document.getElementById('pa-deep-form');if(!box||!t)return;
+  var s=appScholarshipMap[String(t.scholarship_id)]||{};
+  box.className='';
+  box.innerHTML=`<div class="app-deep-grid">
+    <div class="fg"><label class="fl">Target University / Institution</label><input class="fi" id="deep-university-${id}" value="${appEsc(t.target_university||s.provider||'')}" placeholder="e.g. University of Cambridge, Stanford University, McGill University"></div>
+    <div class="fg"><label class="fl">Target Program / Department</label><input class="fi" id="deep-program-${id}" value="${appEsc(t.target_program||'')}" placeholder="e.g. MSc Data Science, MPP, PhD Education"></div>
+    <div class="fg"><label class="fl">University Profile</label><textarea class="fi" id="deep-univprofile-${id}" placeholder="What is this university/program known for? Research strengths, values, teaching style, global mission...">${appEsc(t.university_profile||s.description||'')}</textarea></div>
+    <div class="fg"><label class="fl">Scholarship Committee Expectations</label><textarea class="fi" id="deep-committee-${id}" placeholder="Academic excellence, leadership, public impact, research fit, service, financial need, return contribution...">${appEsc(t.committee_priorities||s.eligibility_summary||'')}</textarea></div>
+    <div class="fg"><label class="fl">Student Personal Evidence</label><textarea class="fi" id="deep-story-${id}" placeholder="Real story: academic journey, obstacles, motivation, achievements, and evidence. No exaggeration.">${appEsc(t.applicant_story||profile.goal||'')}</textarea></div>
+    <div class="fg"><label class="fl">Academic Strengths</label><textarea class="fi" id="deep-strengths-${id}" placeholder="Courses, GPA context, research, projects, publications, awards, technical strengths...">${appEsc(t.academic_strengths||'')}</textarea></div>
+    <div class="fg"><label class="fl">Leadership / Community Impact</label><textarea class="fi" id="deep-leadership-${id}" placeholder="Volunteering, mentoring, student leadership, work impact, church/community/service activities...">${appEsc(t.leadership_impact||'')}</textarea></div>
+    <div class="fg"><label class="fl">10-Year Career / Return Impact Plan</label><textarea class="fi" id="deep-impact-${id}" placeholder="How will this study help you serve your country, region, field, or target community?">${appEsc(t.career_impact_plan||profile.goal||'')}</textarea></div>
+    <div class="fg" style="grid-column:1/-1"><label class="fl">Financial Need / Funding Fit</label><textarea class="fi" id="deep-financial-${id}" placeholder="Why the scholarship is necessary and how it removes barriers to study. Be honest and specific.">${appEsc(t.financial_need_summary||'')}</textarea></div>
+  </div>
+  <div style="display:flex;gap:10px;flex-wrap:wrap"><button class="btn btn-outline" onclick="appSaveDeepInputs(${id}).then(function(){alert('Analysis saved.');})">Save analysis</button><button class="btn btn-primary" onclick="genPreAppFromTracker(${id})">Generate international form →</button></div>`;
+}
+function genPreAppFromTracker(trackerId){
+  var t=appTrackers.find(function(x){return Number(x.id)===Number(trackerId);});if(!t){alert('Application not found.');return;}
+  appSaveDeepInputs(Number(trackerId)).then(function(){var fresh=appTrackers.find(function(x){return Number(x.id)===Number(trackerId);})||t;genPreAppDraft(fresh);});
+}
 function genPreApp(forScholarshipId){
-  const v=forScholarshipId||((document.getElementById('pa-sel')||{}).value);
-  if(!v) return;
-  const s=spScholarshipPool().find(function(x){return String(x.id)===String(v)||String(x.dbId)===String(v);})||spDbScholarshipToMatch(appScholarshipMap[String(v)]||{});
+  var t=appTrackerForScholarship(forScholarshipId);if(t)return genPreAppFromTracker(t.id);
+  alert('Please save this scholarship first so ScholarsPath can build a full tracked application file.');
+}
+function appField(v, fallback){return appEsc(v||fallback||'[To be completed]');}
+function appUploadedList(t){var docs=appDocsForTracker(t.id);if(!docs.length)return '<li>No documents uploaded yet.</li>';return docs.map(function(d){return '<li>'+appEsc(appDocLabel(d.document_type))+': '+appEsc(d.file_name||'Uploaded file')+'</li>';}).join('');}
+function appEssayDraft(s,t){
+  var university=t.target_university||s.provider||s.host_country||'the target institution';
+  var program=t.target_program||('a program related to '+(profile.field||'my field'));
+  var committee=t.committee_priorities||s.eligibility_summary||'academic excellence, leadership, public impact and clear fit with the program';
+  var uniProfile=t.university_profile||s.description||('the academic mission of '+university);
+  var story=t.applicant_story||profile.goal||'my academic journey and long-term commitment to meaningful impact';
+  var strengths=t.academic_strengths||('my background in '+(profile.field||'my field')+', '+(profile.deg||'my current degree level')+' and '+(profile.gpa||'my academic record'));
+  var leadership=t.leadership_impact||'my leadership, service and community experiences';
+  var impact=t.career_impact_plan||profile.goal||('contributing to '+(profile.nat||'my home country')+' after my studies');
+  var financial=t.financial_need_summary||'the scholarship would remove the financial barriers that could prevent me from fully pursuing this academic opportunity';
+  return `<p>I am applying to ${appEsc(program)} at ${appEsc(university)} through ${appEsc(s.name)} because the opportunity directly connects my academic preparation, my personal mission and the scholarship committee’s expectations: ${appEsc(committee)}.</p><br>
+  <p>My interest in ${appEsc(university)} is not general. I am drawn to its profile because ${appEsc(uniProfile)}. This environment is the right place for me to develop the knowledge, discipline and professional network needed to advance in ${appEsc(profile.field||'my field of study')}.</p><br>
+  <p>My application is grounded in real experience. ${appEsc(story)}. Academically, ${appEsc(strengths)}. These elements show that I am not only seeking an opportunity abroad, but preparing for a demanding academic path with a clear sense of responsibility.</p><br>
+  <p>Beyond academic performance, my profile is shaped by impact. ${appEsc(leadership)}. These experiences matter because the scholarship is not simply an award; it is an investment in a person expected to contribute beyond personal success.</p><br>
+  <p>If selected, I will use this opportunity to build a long-term contribution plan: ${appEsc(impact)}. ${appEsc(financial)}. For that reason, this scholarship is not only financially important; it is strategically aligned with who I am, what I have already begun, and the impact I intend to create.</p>`;
+}
+function genPreAppDraft(t){
+  var s=appScholarshipMap[String(t.scholarship_id)]||{};
   if(!s||!s.name){alert('Scholarship not found. Please refresh and try again.');return;}
   document.getElementById('page-preapp').innerHTML=`
-  ${topbar('Pre-Application <em>Draft</em>','Auto-generated from your profile')}
+  ${topbar('International <em>Pre-Application</em>','Drafted from student profile, scholarship profile and university-fit analysis')}
   <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px">
     <button class="btn btn-primary" onclick="alert('PDF download will be connected later.')">📥 Download PDF</button>
     <button class="btn btn-outline" onclick="navigator.clipboard?navigator.clipboard.writeText(document.querySelector('.doc-preview').innerText).then(()=>alert('Copied!')):alert('Select and copy the text manually.')">📋 Copy</button>
@@ -2311,21 +2435,25 @@ function genPreApp(forScholarshipId){
   </div>
   <div class="doc-preview">
     <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:18px;padding-bottom:14px;border-bottom:2px solid #e2e8f0">
-      <div><h2 style="font-size:20px;margin-bottom:4px;color:#2d3748">${appEsc(s.name)}</h2><p style="color:#718096;font-size:13px">Scholarship Application Draft</p></div>
+      <div><h2 style="font-size:20px;margin-bottom:4px;color:#2d3748">${appEsc(s.name)}</h2><p style="color:#718096;font-size:13px">International Standard Pre-Application File</p></div>
       <div style="font-size:11px;color:#718096;text-align:right">ScholarsPath<br>${new Date().toLocaleDateString()}</div>
     </div>
-    <h3 style="font-size:14px;color:#2d3748;margin-bottom:10px;font-weight:600">Personal Information</h3>
-    ${[['Full Name',profile.name||'[Your Name]'],['Email',profile.email||'[Your Email]'],['Nationality',profile.nat||'[Nationality]'],['Date of Birth','[To be filled]'],['Passport Number','[To be filled]']].map(function(a){return `<div class="doc-field"><span class="dl">${a[0]}</span><span class="dv">${appEsc(a[1])}</span></div>`;}).join('')}
-    <h3 style="font-size:14px;color:#2d3748;margin:16px 0 10px;font-weight:600">Academic Background</h3>
-    ${[['Degree',profile.deg||'[Degree]'],['Field',profile.field||'[Field]'],['GPA',profile.gpa||'[GPA]'],['English',profile.eng||'[English]']].map(function(a){return `<div class="doc-field"><span class="dl">${a[0]}</span><span class="dv">${appEsc(a[1])}</span></div>`;}).join('')}
-    <h3 style="font-size:14px;color:#2d3748;margin:16px 0 10px;font-weight:600">Scholarship Details</h3>
-    ${[['Provider',s.provider||'[Provider]'],['Host Country',s.country||s.host_country||'[Host country]'],['Funding',s.amount||s.funding_type||'[Funding]'],['Deadline',s.deadline||s.deadline_text||'[Deadline varies]']].map(function(a){return `<div class="doc-field"><span class="dl">${a[0]}</span><span class="dv">${appEsc(a[1])}</span></div>`;}).join('')}
-    <h3 style="font-size:14px;color:#2d3748;margin:16px 0 10px;font-weight:600">Statement of Purpose (Draft)</h3>
-    <div style="background:#f7fafc;border-radius:8px;padding:14px;font-size:13px;line-height:1.7;color:#4a5568;border-left:3px solid #4fd1c5">
-      <p>I am applying for the ${appEsc(s.name)} because this opportunity aligns with my academic background in ${appEsc(profile.field||'my field')} and my long-term goal of ${appEsc(profile.goal||'contributing to meaningful development through my studies and professional work')}.</p><br>
-      <p>My current academic profile, including ${appEsc(profile.deg||'my degree level')} and ${appEsc(profile.gpa||'my academic results')}, has prepared me to pursue international academic excellence with discipline and purpose.</p><br>
-      <p>If selected, I intend to use this opportunity not only for personal advancement but also to create positive impact for ${appEsc(profile.nat||'my home country')} and the communities connected to my future work.</p>
-    </div>
+    <div class="app-analysis-note"><b>Drafting principle:</b> This file is not a generic AI statement. It is structured around the student profile, target university/program, scholarship expectations, uploaded evidence and realistic impact plan. Bracketed items must be completed with verified facts before submission.</div>
+    <h3 style="font-size:14px;color:#2d3748;margin-bottom:10px;font-weight:600">1. Applicant Identity & Contact</h3>
+    ${[['Full Name',profile.name],['Email',profile.email],['Nationality / Citizenship',profile.nat],['Date of Birth','[To be filled]'],['Passport / National ID','[To be filled]'],['Permanent Address','[To be filled]']].map(function(a){return `<div class="doc-field"><span class="dl">${a[0]}</span><span class="dv">${appField(a[1])}</span></div>`;}).join('')}
+    <h3 style="font-size:14px;color:#2d3748;margin:16px 0 10px;font-weight:600">2. Target Institution, Program & Scholarship</h3>
+    ${[['Target University / Institution',t.target_university||s.provider],['Target Program / Department',t.target_program],['Scholarship',s.name],['Provider',s.provider],['Host Country',s.host_country||s.country],['Funding',s.funding_type||s.amount],['Deadline',s.deadline_text||appDateLabel(s.deadline_date)]].map(function(a){return `<div class="doc-field"><span class="dl">${a[0]}</span><span class="dv">${appField(a[1])}</span></div>`;}).join('')}
+    <h3 style="font-size:14px;color:#2d3748;margin:16px 0 10px;font-weight:600">3. Academic Record</h3>
+    ${[['Current / Highest Degree',profile.deg],['Field of Study',profile.field],['GPA / Grade Range',profile.gpa],['English Level',profile.eng],['Key Academic Strengths',t.academic_strengths]].map(function(a){return `<div class="doc-field"><span class="dl">${a[0]}</span><span class="dv">${appField(a[1])}</span></div>`;}).join('')}
+    <div class="app-section-card"><h4>4. Standard Application Sections to Prepare</h4><ul><li>Applicant profile and citizenship information</li><li>Academic history, transcripts and degree certificates</li><li>Standardized/language test results where required</li><li>Target program fit and institution-specific motivation</li><li>Personal statement or statement of purpose</li><li>Research proposal, study plan or project portfolio when required</li><li>Leadership, service, employment and extracurricular record</li><li>Honors, awards, publications and relevant achievements</li><li>Recommendation letters and recommender details</li><li>Financial need, funding declaration and scholarship-specific questions</li><li>Immigration/passport information and final applicant declarations</li></ul></div>
+    <div class="app-section-card"><h4>5. Documents Uploaded / To Upload</h4><ul>${appUploadedList(t)}</ul></div>
+    <h3 style="font-size:14px;color:#2d3748;margin:16px 0 10px;font-weight:600">6. Deep Fit Analysis</h3>
+    <div class="app-section-card"><h4>University / Program Profile</h4><p style="font-size:12.5px;line-height:1.6;color:#4a5568">${appField(t.university_profile||s.description,'[Research the university/program profile and add verified details.]')}</p></div>
+    <div class="app-section-card"><h4>Committee Expectations</h4><p style="font-size:12.5px;line-height:1.6;color:#4a5568">${appField(t.committee_priorities||s.eligibility_summary,'[Identify the scholarship committee priorities from the official page.]')}</p></div>
+    <div class="app-section-card"><h4>Student Evidence</h4><p style="font-size:12.5px;line-height:1.6;color:#4a5568">${appField(t.applicant_story||profile.goal,'[Add concrete personal evidence and avoid invented achievements.]')}</p></div>
+    <h3 style="font-size:14px;color:#2d3748;margin:16px 0 10px;font-weight:600">7. Statement of Purpose / Scholarship Essay Draft</h3>
+    <div class="app-essay-box">${appEssayDraft(s,t)}</div>
+    <div class="app-section-card"><h4>8. Final Checks Before Submission</h4><ul><li>Verify every deadline and document requirement on the official scholarship/university website.</li><li>Replace every bracketed item with true, evidence-based information.</li><li>Ask a mentor or trusted reviewer to check clarity, realism and alignment with the committee priorities.</li><li>Confirm that uploaded files are complete, readable and named professionally.</li></ul></div>
   </div>`;
 }
 
