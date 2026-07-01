@@ -222,6 +222,24 @@ textarea.fi{resize:vertical;min-height:80px}
 .sm-wlist{margin:0;padding-left:16px}
 .sm-wlist li{font-size:12.5px;color:var(--text2);margin:3px 0}
 .sm-wlist li b{color:var(--text)}
+
+/* ===== Peer media + audio/video call MVP ===== */
+.peer-chat-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:8px}
+.peer-img-msg{max-width:220px;max-height:220px;border-radius:12px;border:1px solid var(--border);display:block;margin-top:4px;object-fit:cover}
+.peer-media-caption{font-size:12px;color:var(--text2);margin-top:6px}
+.peer-call-modal{position:fixed;inset:0;background:rgba(2,6,23,.82);z-index:9999;display:flex;align-items:center;justify-content:center;padding:18px}
+.peer-call-box{width:min(760px,96vw);background:var(--card);border:1px solid var(--border);border-radius:22px;padding:18px;box-shadow:0 30px 100px rgba(0,0,0,.55)}
+.peer-call-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px}
+.peer-call-title{font-size:18px;font-weight:600}.peer-call-sub{font-size:12px;color:var(--text3)}
+.peer-call-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px}
+.peer-video-wrap{background:#050814;border:1px solid var(--border);border-radius:16px;min-height:220px;display:flex;align-items:center;justify-content:center;overflow:hidden;position:relative;color:var(--text3)}
+.peer-video-wrap video{width:100%;height:100%;object-fit:cover;min-height:220px;background:#050814}
+.peer-video-label{position:absolute;left:10px;bottom:8px;background:rgba(0,0,0,.5);border:1px solid rgba(255,255,255,.12);border-radius:20px;padding:3px 9px;font-size:11px;color:#fff}
+.peer-audio-card{background:var(--bg3);border:1px solid var(--border);border-radius:16px;padding:26px;text-align:center;color:var(--text2);margin-bottom:14px}
+.peer-call-controls{display:flex;gap:10px;justify-content:center;flex-wrap:wrap}
+.peer-danger{background:#fc814a;color:#0a0f1a}
+@media(max-width:720px){.peer-call-grid{grid-template-columns:1fr}.peer-video-wrap{min-height:180px}.peer-video-wrap video{min-height:180px}}
+
 </style>
 </head>
 <body>
@@ -1389,6 +1407,7 @@ async function peerLoad(force){
     var user=await peerCurrentUser();
     if(!user) throw new Error('Please log in first.');
     await peerEnsureProfile();
+    peerListenIncomingCalls();
     var res=await sb.from('peer_profiles')
       .select('user_id,display_name,nationality,field,academic_mindset_archetype,academic_mindset_type,academic_mindset_tags,target_scholarship_id,target_scholarship_name,bio,is_visible,last_seen,created_at')
       .eq('is_visible',true)
@@ -1510,7 +1529,7 @@ async function peerLoadMessages(){
     var user=await peerCurrentUser();
     if(!user) return;
     var res=await sb.from('peer_messages')
-      .select('id,sender_id,receiver_id,body,created_at,read_at')
+      .select('id,sender_id,receiver_id,body,message_type,media_path,file_name,mime_type,created_at,read_at')
       .or('sender_id.eq.'+user.id+',receiver_id.eq.'+user.id)
       .order('created_at',{ascending:true})
       .limit(200);
@@ -1518,12 +1537,228 @@ async function peerLoadMessages(){
     peerMessages=(res.data||[]).filter(function(m){
       return (m.sender_id===user.id&&m.receiver_id===selPeer.user_id)||(m.sender_id===selPeer.user_id&&m.receiver_id===user.id);
     });
+    await peerHydrateMedia(peerMessages);
     peerMessagesLoaded=true;
   }catch(e){
     peerMessagesLoaded=true;
     peerProfilesError=e.message||String(e);
   }
 }
+
+async function peerHydrateMedia(messages){
+  if(!sb||!messages||!messages.length) return;
+  for(var i=0;i<messages.length;i++){
+    var m=messages[i];
+    if(m.message_type==='image'&&m.media_path&&!m.signed_url){
+      try{
+        var r=await sb.storage.from('peer-media').createSignedUrl(m.media_path,60*60);
+        if(r&&!r.error&&r.data) m.signed_url=r.data.signedUrl;
+      }catch(e){}
+    }
+  }
+}
+function peerRenderMessage(m,p){
+  var mine=peerProfile&&m.sender_id===peerProfile.user_id;
+  var time=m.created_at?new Date(m.created_at).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}):'';
+  var who=mine?'You':spEsc((p.display_name||'Peer').split(' ')[0]);
+  var content='';
+  if(m.message_type==='image'){
+    if(m.signed_url){
+      content='<a href="'+spEsc(m.signed_url)+'" target="_blank" rel="noopener"><img class="peer-img-msg" src="'+spEsc(m.signed_url)+'" alt="Shared photo"></a>';
+      if(m.body) content+='<div class="peer-media-caption">'+spEsc(m.body)+'</div>';
+    }else{
+      content='<span style="color:var(--text3)">📷 Photo unavailable. Refresh or check storage permissions.</span>';
+    }
+  }else{
+    content=spEsc(m.body||'');
+  }
+  return '<div><div style="font-size:10px;color:var(--text3);margin-bottom:2px;text-align:'+(mine?'right':'left')+'">'+who+' · '+time+'</div><div class="bubble '+(mine?'me':'')+'">'+content+'</div></div>';
+}
+function peerSafeFileName(name){
+  return String(name||'photo').toLowerCase().replace(/[^a-z0-9._-]+/g,'-').replace(/-+/g,'-').slice(0,80)||'photo';
+}
+async function sendPeerImage(file){
+  if(!file||!selPeer||peerBusy) return;
+  if(!file.type||!file.type.startsWith('image/')){alert('Please choose an image file.');return;}
+  if(file.size>5*1024*1024){alert('Please choose an image under 5 MB.');return;}
+  peerBusy=true;
+  try{
+    var user=await peerCurrentUser();
+    if(!user) throw new Error('Please log in first.');
+    var ext=(file.name&&file.name.indexOf('.')>-1)?file.name.split('.').pop():'jpg';
+    var path=user.id+'/'+Date.now()+'-'+peerSafeFileName(file.name||('photo.'+ext));
+    var up=await sb.storage.from('peer-media').upload(path,file,{cacheControl:'3600',upsert:false,contentType:file.type});
+    if(up.error) throw up.error;
+    var res=await sb.from('peer_messages').insert({
+      sender_id:user.id,
+      receiver_id:selPeer.user_id,
+      body:'',
+      message_type:'image',
+      media_path:path,
+      file_name:file.name||'photo',
+      mime_type:file.type
+    });
+    if(res.error) throw res.error;
+    await peerLoadMessages();
+    rPeers();
+    setTimeout(function(){var cm=document.getElementById('chat-msgs');if(cm)cm.scrollTop=cm.scrollHeight;},80);
+  }catch(e){
+    alert('Could not send photo: '+(e.message||e));
+  }finally{peerBusy=false;}
+}
+
+let peerIncomingSub=null;
+let peerCallSub=null;
+let peerCallState=null;
+const PEER_RTC_CONFIG={iceServers:[{urls:'stun:stun.l.google.com:19302'}]};
+
+async function peerListenIncomingCalls(){
+  if(!sb||peerIncomingSub) return;
+  var user=await peerCurrentUser();
+  if(!user) return;
+  peerIncomingSub=sb.channel('peer-incoming-'+user.id)
+    .on('postgres_changes',{event:'INSERT',schema:'public',table:'peer_call_signals',filter:'receiver_id=eq.'+user.id},async function(payload){
+      var sig=payload.new;
+      if(!sig||sig.signal_type!=='offer') return;
+      await peerHandleIncomingCall(sig);
+    }).subscribe();
+}
+async function peerHandleIncomingCall(sig){
+  if(peerCallState&&peerCallState.active){
+    try{await peerSendSignal(sig.call_id,sig.receiver_id,sig.sender_id,'hangup',sig.call_kind||'audio',{reason:'busy'});}catch(e){}
+    return;
+  }
+  var caller=peerProfiles.find(function(p){return String(p.user_id)===String(sig.sender_id);});
+  if(!caller){
+    try{
+      var r=await sb.from('peer_profiles').select('user_id,display_name,nationality,field,academic_mindset_archetype,target_scholarship_name,last_seen').eq('user_id',sig.sender_id).maybeSingle();
+      if(r&&!r.error&&r.data) caller=r.data;
+    }catch(e){}
+  }
+  var name=(caller&&caller.display_name)||'A peer';
+  var kind=sig.call_kind||'audio';
+  var ok=confirm('Incoming '+kind+' call from '+name+'. Accept?');
+  if(!ok){
+    try{await peerSendSignal(sig.call_id,sig.receiver_id,sig.sender_id,'hangup',kind,{reason:'declined'});}catch(e){}
+    return;
+  }
+  await peerAcceptCall(sig,caller);
+}
+function peerShowCallModal(kind,peerName){
+  peerCloseCallModalOnly();
+  var isVideo=kind==='video';
+  var html='<div class="peer-call-modal" id="peer-call-modal"><div class="peer-call-box">'+
+    '<div class="peer-call-head"><div><div class="peer-call-title">'+(isVideo?'Video':'Audio')+' call with '+spEsc(peerName||'Peer')+'</div><div class="peer-call-sub" id="peer-call-status">Connecting securely in your browser...</div></div><button class="btn btn-outline" onclick="endPeerCall()">Close</button></div>'+
+    (isVideo?'<div class="peer-call-grid"><div class="peer-video-wrap"><video id="peer-local-video" autoplay muted playsinline></video><span class="peer-video-label">You</span></div><div class="peer-video-wrap"><video id="peer-remote-video" autoplay playsinline></video><span class="peer-video-label">Peer</span></div></div>':'<div class="peer-audio-card"><div style="font-size:42px;margin-bottom:10px">🎧</div><div>Audio call active</div><div style="font-size:12px;color:var(--text3);margin-top:6px">Keep this page open while talking.</div><audio id="peer-remote-audio" autoplay></audio></div>')+
+    '<div class="peer-call-controls"><button class="btn btn-outline" onclick="peerToggleMic()">Toggle Mic</button>'+(isVideo?'<button class="btn btn-outline" onclick="peerToggleCamera()">Toggle Camera</button>':'')+'<button class="btn peer-danger" onclick="endPeerCall()">End Call</button></div>'+
+    '</div></div>';
+  document.body.insertAdjacentHTML('beforeend',html);
+}
+function peerCloseCallModalOnly(){var m=document.getElementById('peer-call-modal');if(m)m.remove();}
+function peerSetCallStatus(txt){var s=document.getElementById('peer-call-status');if(s)s.textContent=txt;}
+function peerAttachCallStreams(){
+  if(!peerCallState) return;
+  var lv=document.getElementById('peer-local-video'); if(lv&&peerCallState.localStream) lv.srcObject=peerCallState.localStream;
+  var rv=document.getElementById('peer-remote-video'); if(rv&&peerCallState.remoteStream) rv.srcObject=peerCallState.remoteStream;
+  var ra=document.getElementById('peer-remote-audio'); if(ra&&peerCallState.remoteStream) ra.srcObject=peerCallState.remoteStream;
+}
+function peerToggleMic(){
+  if(!peerCallState||!peerCallState.localStream) return;
+  peerCallState.localStream.getAudioTracks().forEach(function(t){t.enabled=!t.enabled;});
+}
+function peerToggleCamera(){
+  if(!peerCallState||!peerCallState.localStream) return;
+  peerCallState.localStream.getVideoTracks().forEach(function(t){t.enabled=!t.enabled;});
+}
+async function peerSendSignal(callId,senderId,receiverId,type,kind,payload){
+  var res=await sb.from('peer_call_signals').insert({call_id:callId,sender_id:senderId,receiver_id:receiverId,signal_type:type,call_kind:kind,payload:payload||{}});
+  if(res.error) throw res.error;
+}
+async function peerSubscribeCall(callId){
+  if(peerCallSub&&sb){try{await sb.removeChannel(peerCallSub);}catch(e){}}
+  peerCallSub=sb.channel('peer-call-'+callId)
+    .on('postgres_changes',{event:'INSERT',schema:'public',table:'peer_call_signals',filter:'call_id=eq.'+callId},async function(payload){
+      var sig=payload.new;
+      var user=await peerCurrentUser();
+      if(!sig||!user||sig.sender_id===user.id||!peerCallState||!peerCallState.pc) return;
+      try{
+        if(sig.signal_type==='answer'){
+          await peerCallState.pc.setRemoteDescription(new RTCSessionDescription(sig.payload));
+          peerSetCallStatus('Connected.');
+        }else if(sig.signal_type==='candidate'&&sig.payload){
+          await peerCallState.pc.addIceCandidate(new RTCIceCandidate(sig.payload));
+        }else if(sig.signal_type==='hangup'){
+          alert('The peer ended or declined the call.');
+          endPeerCall(true);
+        }
+      }catch(e){console.warn('Call signal error',e);}
+    }).subscribe();
+}
+async function peerCreatePc(localUserId,remoteUserId,callId,kind){
+  var pc=new RTCPeerConnection(PEER_RTC_CONFIG);
+  var remoteStream=new MediaStream();
+  pc.ontrack=function(ev){ev.streams[0].getTracks().forEach(function(t){remoteStream.addTrack(t);});peerAttachCallStreams();peerSetCallStatus('Connected.');};
+  pc.onicecandidate=function(ev){if(ev.candidate) peerSendSignal(callId,localUserId,remoteUserId,'candidate',kind,ev.candidate.toJSON()).catch(function(e){console.warn(e);});};
+  pc.onconnectionstatechange=function(){if(pc.connectionState==='connected')peerSetCallStatus('Connected.'); if(['failed','disconnected'].includes(pc.connectionState))peerSetCallStatus('Connection interrupted.');};
+  return {pc:pc,remoteStream:remoteStream};
+}
+async function startPeerCall(kind){
+  if(!selPeer){alert('Select a peer first.');return;}
+  if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){alert('Your browser does not support camera/microphone calls.');return;}
+  if(peerCallState&&peerCallState.active){alert('A call is already active.');return;}
+  try{
+    var user=await peerCurrentUser(); if(!user) throw new Error('Please log in first.');
+    var callId=(window.crypto&&window.crypto.randomUUID)?window.crypto.randomUUID():(String(Date.now())+'-'+Math.random().toString(16).slice(2));
+    var stream=await navigator.mediaDevices.getUserMedia({audio:true,video:kind==='video'});
+    var made=await peerCreatePc(user.id,selPeer.user_id,callId,kind);
+    peerCallState={active:true,callId:callId,kind:kind,peerId:selPeer.user_id,pc:made.pc,localStream:stream,remoteStream:made.remoteStream,isCaller:true};
+    stream.getTracks().forEach(function(t){made.pc.addTrack(t,stream);});
+    peerShowCallModal(kind,selPeer.display_name); peerAttachCallStreams();
+    await peerSubscribeCall(callId);
+    var offer=await made.pc.createOffer();
+    await made.pc.setLocalDescription(offer);
+    await peerSendSignal(callId,user.id,selPeer.user_id,'offer',kind,offer);
+    peerSetCallStatus('Calling... the other student must accept.');
+  }catch(e){
+    endPeerCall(true);
+    alert('Could not start call: '+(e.message||e));
+  }
+}
+async function peerAcceptCall(sig,caller){
+  if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){alert('Your browser does not support camera/microphone calls.');return;}
+  try{
+    var user=await peerCurrentUser(); if(!user) throw new Error('Please log in first.');
+    var kind=sig.call_kind||'audio';
+    var stream=await navigator.mediaDevices.getUserMedia({audio:true,video:kind==='video'});
+    var made=await peerCreatePc(user.id,sig.sender_id,sig.call_id,kind);
+    peerCallState={active:true,callId:sig.call_id,kind:kind,peerId:sig.sender_id,pc:made.pc,localStream:stream,remoteStream:made.remoteStream,isCaller:false};
+    stream.getTracks().forEach(function(t){made.pc.addTrack(t,stream);});
+    peerShowCallModal(kind,(caller&&caller.display_name)||'Peer'); peerAttachCallStreams();
+    await peerSubscribeCall(sig.call_id);
+    await made.pc.setRemoteDescription(new RTCSessionDescription(sig.payload));
+    var answer=await made.pc.createAnswer();
+    await made.pc.setLocalDescription(answer);
+    await peerSendSignal(sig.call_id,user.id,sig.sender_id,'answer',kind,answer);
+    peerSetCallStatus('Connected.');
+  }catch(e){
+    endPeerCall(true);
+    alert('Could not accept call: '+(e.message||e));
+  }
+}
+async function endPeerCall(skipSignal){
+  try{
+    if(peerCallState&&!skipSignal){
+      var user=await peerCurrentUser();
+      if(user&&peerCallState.peerId) await peerSendSignal(peerCallState.callId,user.id,peerCallState.peerId,'hangup',peerCallState.kind,{reason:'ended'});
+    }
+  }catch(e){}
+  try{if(peerCallState&&peerCallState.localStream)peerCallState.localStream.getTracks().forEach(function(t){t.stop();});}catch(e){}
+  try{if(peerCallState&&peerCallState.pc)peerCallState.pc.close();}catch(e){}
+  if(peerCallSub&&sb){try{await sb.removeChannel(peerCallSub);}catch(e){} peerCallSub=null;}
+  peerCallState=null;
+  peerCloseCallModalOnly();
+}
+
 function buildChat(){
   if(!selPeer){
     return '<div class="card" style="display:flex;align-items:center;justify-content:center;min-height:360px;flex-direction:column;gap:10px;color:var(--text3)"><div style="font-size:44px">💬</div><p>Select a real peer to start chatting</p></div>';
@@ -1533,18 +1768,18 @@ function buildChat(){
     '<div style="display:flex;align-items:center;gap:10px;padding-bottom:13px;margin-bottom:13px;border-bottom:1px solid var(--border)">'+
       '<div class="peer-av" style="background:'+peerColor(p.user_id+p.display_name)+';width:38px;height:38px;font-size:13px">'+peerInitials(p.display_name)+'</div>'+ 
       '<div style="flex:1"><div style="font-weight:500">'+spEsc(p.display_name)+' '+peerCountryFlag(p.nationality)+'</div><div style="font-size:12px;color:var(--accent)">'+spEsc(peerMindsetLabel(p))+'</div><div style="font-size:12px;color:var(--text3)">Target: '+spEsc(p.target_scholarship_name||'Open / not selected')+'</div></div>'+ 
+      '<button class="btn btn-outline" style="padding:6px 10px;font-size:12px" onclick="startPeerCall(\'audio\')">🎧 Audio</button>'+ 
+      '<button class="btn btn-outline" style="padding:6px 10px;font-size:12px" onclick="startPeerCall(\'video\')">🎥 Video</button>'+ 
       '<button class="btn btn-outline" style="padding:6px 10px;font-size:12px" onclick="peerLoadMessages().then(rPeers)">Refresh</button>'+ 
     '</div>'+ 
     '<div class="chat-wrap" id="chat-msgs">'+
       (!peerMessagesLoaded?'<div style="text-align:center;color:var(--text3);font-size:13px;padding:28px 0">Loading messages...</div>':
       (peerMessages.length===0?'<div style="text-align:center;color:var(--text3);font-size:13px;padding:28px 0"><div style="font-size:30px;margin-bottom:8px">👋</div>Say hello to '+spEsc((p.display_name||'Scholar').split(' ')[0])+'!</div>':
-      peerMessages.map(function(m){
-        var mine=peerProfile&&m.sender_id===peerProfile.user_id;
-        var time=m.created_at?new Date(m.created_at).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}):'';
-        return '<div><div style="font-size:10px;color:var(--text3);margin-bottom:2px;text-align:'+(mine?'right':'left')+'">'+(mine?'You':spEsc((p.display_name||'Peer').split(' ')[0]))+' · '+time+'</div><div class="bubble '+(mine?'me':'')+'">'+spEsc(m.body)+'</div></div>';
-      }).join('')))+
+      peerMessages.map(function(m){return peerRenderMessage(m,p);}).join('')))+
     '</div>'+ 
-    '<div style="display:flex;gap:8px;margin-top:auto">'+
+    '<input type="file" id="peer-photo-in" accept="image/*" style="display:none" onchange="sendPeerImage(this.files[0]);this.value=\'\'">'+
+    '<div style="display:flex;gap:8px;margin-top:auto;align-items:center">'+
+      '<button class="btn btn-outline" title="Send photo" onclick="document.getElementById(\'peer-photo-in\').click()">📷</button>'+ 
       '<input class="fi" id="peer-inp" placeholder="Type a message..." maxlength="2000" style="flex:1" onkeydown="if(event.key===\'Enter\')sendPeer()">'+
       '<button class="btn btn-primary" onclick="sendPeer()">Send</button>'+ 
     '</div>'+ 
@@ -1559,7 +1794,7 @@ async function sendPeer(){
     if(!user) throw new Error('Please log in first.');
     var body=inp.value.trim().slice(0,2000);
     inp.value='';
-    var res=await sb.from('peer_messages').insert({sender_id:user.id,receiver_id:selPeer.user_id,body:body});
+    var res=await sb.from('peer_messages').insert({sender_id:user.id,receiver_id:selPeer.user_id,body:body,message_type:'text'});
     if(res.error) throw res.error;
     await peerLoadMessages();
     rPeers();
