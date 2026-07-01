@@ -2707,7 +2707,7 @@ function newsZoneFromScholarship(s){
   return s.host_country||s.country||'Global';
 }
 function newsActiveScholarshipAlerts(){
-  const source=(Array.isArray(spScholarships)&&spScholarships.length)?spScholarships:[];
+  const source=(Array.isArray(liveScholarships)&&liveScholarships.length)?liveScholarships:[];
   return source.slice(0,8).map((s,i)=>({
     id:'sch-'+s.id,
     title:'Scholarship watch: '+(s.name||'Active scholarship'),
@@ -2881,7 +2881,8 @@ function rNews(){
     body=newsTab==='daily'?renderDailyNews():newsTab==='weekly'?renderWeeklyNewsletter():`<div class="news-split"><div class="card"><div style="font-size:18px;font-weight:500;margin-bottom:10px">How curation works</div><p style="color:var(--text2);font-size:13px">ScholarsPath ranks news by relevance to the individual student: preferred regions, target universities, scholarship deadlines, field of study, degree level, saved applications, institutional events, university projects and hidden opportunity signals.</p><div class="sm-gaps"><div class="sm-gt">Recommended source types</div><ul><li>Official scholarship announcements</li><li>University admissions updates</li><li>Research/project announcements from target universities</li><li>University events, webinars and open days</li><li>Visa, housing and student-support updates</li><li>Signals that reveal what committees and universities currently value</li></ul></div></div><div>${renderNewsPreferenceBox()}</div></div>`;
   }catch(e){
     console.warn('News body render failed; using safe fallback',e);
-    const fallback=newsActiveScholarshipAlerts();
+    let fallback=[];
+    try{ fallback=newsActiveScholarshipAlerts(); }catch(inner){ console.warn('News fallback failed',inner); fallback=[]; }
     body=`<div class="card"><div style="font-size:18px;font-weight:500;margin-bottom:8px">Scholarship-watch feed</div>${fallback.length?fallback.map(function(n){return renderNewsCard({item:n,meta:{score:70,reasons:['active scholarship in your database']}});}).join(''):'<p style="color:var(--text2)">No curated news yet. Add active scholarships or curated news records in Supabase.</p>'}</div>`;
   }
   pg.innerHTML=`${topbar('Curated <em>News</em>','Daily personalized intelligence + weekly ScholarsPath newsletter')}
