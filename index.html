@@ -263,6 +263,21 @@ textarea.fi{resize:vertical;min-height:80px}
 .mentor-detail{position:sticky;top:20px}
 @media(max-width:768px){.mentor-detail{position:static}.mentor-head{align-items:flex-start}}
 
+
+/* ===== Application Tracker ===== */
+.app-tabs{display:flex;gap:4px;background:var(--bg3);border-radius:12px;padding:4px;margin-bottom:18px;flex-wrap:wrap}
+.app-tab{border:0;background:transparent;color:var(--text3);border-radius:9px;padding:9px 14px;font-family:inherit;cursor:pointer;font-size:13px}
+.app-tab.active{background:var(--card2);color:var(--accent)}
+.app-card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:18px;margin-bottom:14px}
+.app-head{display:flex;justify-content:space-between;align-items:flex-start;gap:14px;flex-wrap:wrap}
+.app-progress{width:74px;height:74px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:rgba(79,209,197,.08);border:1px solid rgba(79,209,197,.25);color:var(--accent);font-size:20px;font-weight:800;flex-shrink:0}
+.app-checklist{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-top:12px}
+@media(max-width:650px){.app-checklist{grid-template-columns:1fr}}
+.app-check{background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:9px 10px;display:flex;align-items:center;gap:8px;font-size:13px;color:var(--text2)}
+.app-check input{accent-color:var(--accent)}
+.app-note{width:100%;margin-top:12px;min-height:62px}
+.app-status{min-width:150px}
+
 </style>
 </head>
 <body>
@@ -385,7 +400,7 @@ textarea.fi{resize:vertical;min-height:80px}
     <button class="nav-btn" id="nb-matches" onclick="showPage('matches')">🎯<span class="nav-tip">Matches</span></button>
     <button class="nav-btn" id="nb-peers" onclick="showPage('peers')">🤝<span class="nav-tip">Peers</span></button>
     <button class="nav-btn" id="nb-mentors" onclick="showPage('mentors')">🎓<span class="nav-tip">Mentors</span></button>
-    <button class="nav-btn" id="nb-preapp" onclick="showPage('preapp')">📄<span class="nav-tip">Pre-Application</span></button>
+    <button class="nav-btn" id="nb-preapp" onclick="showPage('preapp')">📋<span class="nav-tip">Applications</span></button>
     <button class="nav-btn" id="nb-news" onclick="showPage('news')">📰<span class="nav-tip">News</span><span class="notif"></span></button>
     <button class="nav-btn" id="nb-mental" onclick="showPage('mental')">💙<span class="nav-tip">Wellness</span></button>
     <button class="nav-btn" id="nb-tips" onclick="showPage('tips')">💡<span class="nav-tip">Tips</span></button>
@@ -646,6 +661,12 @@ let mentorsError='';
 let mentorSelectedId=null;
 let mentorView='find';
 let mentorBusy=false;
+let appView='tracker';
+let appTrackers=[];
+let appSavedRows=[];
+let appScholarshipMap={};
+let applicationsLoaded=false;
+let applicationsError='';
 
 // ── SCREENS ───────────────────────────────────────────────────────────────────
 function showScreen(id){
@@ -1054,6 +1075,14 @@ async function spSaveScholarship(dbId,btn){
     if(btn){btn.disabled=true;btn.textContent='Saving...';}
     var res=await sb.from('saved_scholarships').upsert({user_id:user.id,scholarship_id:dbId,status:'saved'});
     if(res.error) throw res.error;
+    var sch=spScholarshipPool().find(function(x){return Number(x.dbId||x.id)===Number(dbId);});
+    await sb.from('application_tracker').upsert({
+      user_id:user.id,
+      scholarship_id:dbId,
+      status:'planning',
+      deadline_date:sch&&sch.raw&&sch.raw.deadline_date?sch.raw.deadline_date:null
+    });
+    applicationsLoaded=false;
     savedScholarshipIds.add(Number(dbId));
     if(btn){btn.textContent='✓ Saved';btn.className='btn btn-outline';}
   }catch(e){
@@ -2137,46 +2166,165 @@ async function mentorReviewPrompt(bookingId,mentorId){
   try{var user=await mentorCurrentUser();if(!user)throw new Error('Please log in.');var res=await sb.from('mentor_reviews').insert({booking_id:bookingId,mentor_id:mentorId,student_id:user.id,rating:rating,comment:comment||''});if(res.error)throw res.error;mentorsLoaded=false;await mentorLoad(true);rMentors();}catch(e){alert('Could not save review: '+(e.message||e));}
 }
 
-// ── PRE-APPLICATION ───────────────────────────────────────────────────────────
+
+// ── APPLICATION TRACKER + PRE-APPLICATION ─────────────────────────────────────
+function appSetView(v){appView=v;rPreApp();}
+function appDateLabel(v){if(!v)return 'Deadline varies';try{return new Date(v+'T00:00:00').toLocaleDateString();}catch(e){return v||'Deadline varies';}}
+function appEsc(v){return spEsc(v);}
+function appProgress(t){var keys=['documents_ready','personal_statement_ready','recommendation_letters_ready','transcript_ready','language_test_ready'];var done=keys.filter(function(k){return !!t[k];}).length;return Math.round((done/keys.length)*100);}
+function appStatusLabel(s){return ({planning:'Planning',drafting:'Drafting',review:'Under review',ready:'Ready to submit',submitted:'Submitted',accepted:'Accepted',rejected:'Not selected'})[s]||'Planning';}
+function appScholarName(id){var s=appScholarshipMap[String(id)];return s?s.name:'Scholarship';}
+function appScholarDeadline(id,t){var s=appScholarshipMap[String(id)];return t&&t.deadline_date?appDateLabel(t.deadline_date):(s?(s.deadline_text||appDateLabel(s.deadline_date)):'Deadline varies');}
+async function appLoadApplications(force){
+  if(applicationsLoaded&&!force)return;
+  applicationsError='';
+  try{
+    if(!sb)throw new Error('Supabase is not ready yet.');
+    var u=await sb.auth.getUser();var user=(u&&u.data)?u.data.user:null;if(!user)throw new Error('Please log in first.');
+    var saved=await sb.from('saved_scholarships').select('*').eq('user_id',user.id).order('created_at',{ascending:false});
+    if(saved.error)throw saved.error;
+    appSavedRows=saved.data||[];
+    var ids=Array.from(new Set(appSavedRows.map(function(r){return Number(r.scholarship_id);}).filter(Boolean)));
+    appScholarshipMap={};
+    if(ids.length){
+      var sch=await sb.from('scholarships').select('*').in('id',ids);
+      if(!sch.error)(sch.data||[]).forEach(function(x){appScholarshipMap[String(x.id)]=x;});
+      // Create missing tracker rows for saved scholarships. This makes old saved scholarships usable too.
+      for(var i=0;i<ids.length;i++){
+        var sid=ids[i], sc=appScholarshipMap[String(sid)];
+        await sb.from('application_tracker').upsert({user_id:user.id,scholarship_id:sid,status:'planning',deadline_date:sc&&sc.deadline_date?sc.deadline_date:null});
+      }
+    }
+    var tr=await sb.from('application_tracker').select('*').eq('user_id',user.id).order('updated_at',{ascending:false});
+    if(tr.error)throw tr.error;
+    appTrackers=tr.data||[];
+    applicationsLoaded=true;
+  }catch(e){applicationsLoaded=true;applicationsError=e.message||String(e);console.warn('Application load failed',e);}
+}
+async function appUpdateStatus(id,val){
+  var res=await sb.from('application_tracker').update({status:val}).eq('id',id);
+  if(res.error){alert('Could not update status: '+res.error.message);return;}
+  applicationsLoaded=false;appLoadApplications(true).then(rPreApp);
+}
+async function appToggleDoc(id,key,val){
+  var patch={};patch[key]=!!val;
+  var res=await sb.from('application_tracker').update(patch).eq('id',id);
+  if(res.error){alert('Could not update checklist: '+res.error.message);return;}
+  var t=appTrackers.find(function(x){return Number(x.id)===Number(id);});if(t)t[key]=!!val;
+  var p=document.getElementById('app-prog-'+id);if(p&&t)p.textContent=appProgress(t)+'%';
+}
+async function appSaveNotes(id){
+  var el=document.getElementById('app-notes-'+id);if(!el)return;
+  var res=await sb.from('application_tracker').update({notes:el.value}).eq('id',id);
+  if(res.error){alert('Could not save notes: '+res.error.message);return;}
+  alert('Notes saved.');
+}
+async function appRefresh(){applicationsLoaded=false;await appLoadApplications(true);rPreApp();}
 function rPreApp(){
-  document.getElementById('page-preapp').innerHTML=`
-  ${topbar('Pre-Application <em>Form</em>','Auto-generated from your profile — ready to submit')}
-  <div class="card" style="max-width:540px">
+  const pg=document.getElementById('page-preapp');
+  if(!applicationsLoaded){
+    pg.innerHTML=`${topbar('My <em>Applications</em>','Track saved scholarships, documents, deadlines and pre-application drafts')}
+    <div class="card"><div style="color:var(--text2)">Loading your applications...</div></div>`;
+    appLoadApplications(false).then(rPreApp);return;
+  }
+  pg.innerHTML=`${topbar('My <em>Applications</em>','Turn saved scholarships into real application workflows')}
+  <div class="alert alert-i"><span>✦</span><span>Each saved scholarship becomes an application tracker with status, deadline, document checklist, notes and a pre-application draft.</span></div>
+  <div class="app-tabs">
+    <button class="app-tab ${appView==='tracker'?'active':''}" onclick="appSetView('tracker')">Application Tracker</button>
+    <button class="app-tab ${appView==='preapp'?'active':''}" onclick="appSetView('preapp')">Pre-Application Form</button>
+  </div>
+  ${applicationsError?`<div class="alert alert-w"><span>⚠️</span><span>${appEsc(applicationsError)}</span></div>`:''}
+  ${appView==='tracker'?appTrackerHtml():appPreAppHtml()}`;
+}
+function appTrackerHtml(){
+  if(!appTrackers.length){
+    return `<div class="card" style="max-width:620px">
+      <div style="font-size:42px;margin-bottom:12px">📋</div>
+      <h3 style="font-size:20px;font-weight:400;margin-bottom:8px">No applications yet</h3>
+      <p style="color:var(--text2);font-size:13px;margin-bottom:16px">Go to Matches, save one scholarship, then come back here. ScholarsPath will create an application tracker automatically.</p>
+      <button class="btn btn-primary" onclick="showPage('matches')">Go to Matches →</button>
+    </div>`;
+  }
+  return `<div style="display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:14px;flex-wrap:wrap">
+    <div><div class="sec-title">Tracked applications</div><div class="sec-sub">${appTrackers.length} application${appTrackers.length>1?'s':''} in progress</div></div>
+    <button class="btn btn-outline" onclick="appRefresh()">Refresh</button>
+  </div>`+appTrackers.map(function(t){
+    var s=appScholarshipMap[String(t.scholarship_id)]||{};
+    var progress=appProgress(t);
+    var official=s.official_url||'#';
+    return `<div class="app-card">
+      <div class="app-head">
+        <div style="flex:1;min-width:240px">
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:6px">
+            <span class="badge bg">${appEsc(appStatusLabel(t.status))}</span>
+            <span class="tag">⏰ ${appEsc(appScholarDeadline(t.scholarship_id,t))}</span>
+            ${s.host_country?`<span class="tag">🌍 ${appEsc(s.host_country)}</span>`:''}
+          </div>
+          <div style="font-size:18px;font-weight:650;margin-bottom:4px">${appEsc(appScholarName(t.scholarship_id))}</div>
+          <div style="font-size:12.5px;color:var(--text3);line-height:1.5">${appEsc(s.provider||'Scholarship provider')} ${s.funding_type?'• '+appEsc(s.funding_type):''}</div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px">
+            <select class="fi app-status" onchange="appUpdateStatus(${Number(t.id)},this.value)">
+              ${['planning','drafting','review','ready','submitted','accepted','rejected'].map(function(x){return `<option value="${x}" ${t.status===x?'selected':''}>${appStatusLabel(x)}</option>`;}).join('')}
+            </select>
+            <button class="btn btn-outline" onclick="genPreApp(${Number(t.scholarship_id)})">📄 Draft form</button>
+            ${official&&official!=='#'?`<a class="btn btn-outline" href="${appEsc(official)}" target="_blank" rel="noopener">Official page</a>`:''}
+          </div>
+        </div>
+        <div class="app-progress" id="app-prog-${Number(t.id)}">${progress}%</div>
+      </div>
+      <div class="app-checklist">
+        ${appCheck(t,'documents_ready','Core documents')}
+        ${appCheck(t,'personal_statement_ready','Personal statement')}
+        ${appCheck(t,'recommendation_letters_ready','Recommendation letters')}
+        ${appCheck(t,'transcript_ready','Transcript')}
+        ${appCheck(t,'language_test_ready','Language test')}
+      </div>
+      <textarea class="fi app-note" id="app-notes-${Number(t.id)}" placeholder="Notes, next steps, missing documents, mentor advice...">${appEsc(t.notes||'')}</textarea>
+      <div style="margin-top:8px"><button class="btn btn-outline" onclick="appSaveNotes(${Number(t.id)})">Save notes</button></div>
+    </div>`;
+  }).join('');
+}
+function appCheck(t,key,label){return `<label class="app-check"><input type="checkbox" ${t[key]?'checked':''} onchange="appToggleDoc(${Number(t.id)},'${key}',this.checked)"><span>${label}</span></label>`;}
+function appPreAppHtml(){
+  const pool=spScholarshipPool();
+  return `<div class="card" style="max-width:560px">
     <div style="font-size:44px;margin-bottom:12px">📄</div>
-    <h3 style="font-size:20px;font-weight:400;margin-bottom:8px">Generate Your Application</h3>
-    <p style="color:var(--text2);font-size:13px;margin-bottom:18px">Select a scholarship and we'll pre-fill a complete application form using your profile data.</p>
+    <h3 style="font-size:20px;font-weight:400;margin-bottom:8px">Generate Your Application Draft</h3>
+    <p style="color:var(--text2);font-size:13px;margin-bottom:18px">Select a saved scholarship or any active scholarship and ScholarsPath will pre-fill a draft application form from your profile.</p>
     <div class="fg"><label class="fl">Target Scholarship</label>
-      <select class="fi" id="pa-sel"><option value="">Choose scholarship</option>${spScholarshipPool().map(s=>`<option value="${s.id}">${spEsc(s.name)}</option>`).join('')}</select>
+      <select class="fi" id="pa-sel"><option value="">Choose scholarship</option>${pool.map(function(s){return `<option value="${s.id}">${appEsc(s.name)}</option>`;}).join('')}</select>
     </div>
     <button class="btn btn-primary" style="width:100%;justify-content:center;padding:13px" onclick="genPreApp()">✨ Generate Pre-Application</button>
   </div>`;
 }
-function genPreApp(){
-  const v=document.getElementById('pa-sel').value;
+function genPreApp(forScholarshipId){
+  const v=forScholarshipId||((document.getElementById('pa-sel')||{}).value);
   if(!v) return;
-  const s=spScholarshipPool().find(x=>String(x.id)===String(v));
-  if(!s){alert('Scholarship not found. Please refresh and try again.');return;}
+  const s=spScholarshipPool().find(function(x){return String(x.id)===String(v)||String(x.dbId)===String(v);})||spDbScholarshipToMatch(appScholarshipMap[String(v)]||{});
+  if(!s||!s.name){alert('Scholarship not found. Please refresh and try again.');return;}
   document.getElementById('page-preapp').innerHTML=`
-  ${topbar('Pre-Application <em>Form</em>','Auto-generated from your profile')}
+  ${topbar('Pre-Application <em>Draft</em>','Auto-generated from your profile')}
   <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px">
-    <button class="btn btn-primary" onclick="alert('PDF download — connect a backend to enable this!')">📥 Download PDF</button>
-    <button class="btn btn-outline" onclick="alert('Copied!')">📋 Copy</button>
-    <button class="btn btn-ghost" onclick="rPreApp()">← Change</button>
+    <button class="btn btn-primary" onclick="alert('PDF download will be connected later.')">📥 Download PDF</button>
+    <button class="btn btn-outline" onclick="navigator.clipboard?navigator.clipboard.writeText(document.querySelector('.doc-preview').innerText).then(()=>alert('Copied!')):alert('Select and copy the text manually.')">📋 Copy</button>
+    <button class="btn btn-ghost" onclick="rPreApp()">← Back to Applications</button>
   </div>
   <div class="doc-preview">
     <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:18px;padding-bottom:14px;border-bottom:2px solid #e2e8f0">
-      <div><h2 style="font-size:20px;margin-bottom:4px;color:#2d3748">${s.name}</h2><p style="color:#718096;font-size:13px">Scholarship Application Form</p></div>
+      <div><h2 style="font-size:20px;margin-bottom:4px;color:#2d3748">${appEsc(s.name)}</h2><p style="color:#718096;font-size:13px">Scholarship Application Draft</p></div>
       <div style="font-size:11px;color:#718096;text-align:right">ScholarsPath<br>${new Date().toLocaleDateString()}</div>
     </div>
     <h3 style="font-size:14px;color:#2d3748;margin-bottom:10px;font-weight:600">Personal Information</h3>
-    ${[['Full Name',profile.name||'[Your Name]'],['Email',profile.email||'[Your Email]'],['Nationality',profile.nat||'[Nationality]'],['Date of Birth','[To be filled]'],['Passport Number','[To be filled]']].map(([l,v])=>`<div class="doc-field"><span class="dl">${l}</span><span class="dv">${v}</span></div>`).join('')}
+    ${[['Full Name',profile.name||'[Your Name]'],['Email',profile.email||'[Your Email]'],['Nationality',profile.nat||'[Nationality]'],['Date of Birth','[To be filled]'],['Passport Number','[To be filled]']].map(function(a){return `<div class="doc-field"><span class="dl">${a[0]}</span><span class="dv">${appEsc(a[1])}</span></div>`;}).join('')}
     <h3 style="font-size:14px;color:#2d3748;margin:16px 0 10px;font-weight:600">Academic Background</h3>
-    ${[['Degree',profile.deg||'[Degree]'],['Field',profile.field||'[Field]'],['GPA',profile.gpa||'[GPA]'],['English',profile.eng||'[English]']].map(([l,v])=>`<div class="doc-field"><span class="dl">${l}</span><span class="dv">${v}</span></div>`).join('')}
+    ${[['Degree',profile.deg||'[Degree]'],['Field',profile.field||'[Field]'],['GPA',profile.gpa||'[GPA]'],['English',profile.eng||'[English]']].map(function(a){return `<div class="doc-field"><span class="dl">${a[0]}</span><span class="dv">${appEsc(a[1])}</span></div>`;}).join('')}
+    <h3 style="font-size:14px;color:#2d3748;margin:16px 0 10px;font-weight:600">Scholarship Details</h3>
+    ${[['Provider',s.provider||'[Provider]'],['Host Country',s.country||s.host_country||'[Host country]'],['Funding',s.amount||s.funding_type||'[Funding]'],['Deadline',s.deadline||s.deadline_text||'[Deadline varies]']].map(function(a){return `<div class="doc-field"><span class="dl">${a[0]}</span><span class="dv">${appEsc(a[1])}</span></div>`;}).join('')}
     <h3 style="font-size:14px;color:#2d3748;margin:16px 0 10px;font-weight:600">Statement of Purpose (Draft)</h3>
     <div style="background:#f7fafc;border-radius:8px;padding:14px;font-size:13px;line-height:1.7;color:#4a5568;border-left:3px solid #4fd1c5">
-      <p>I am applying for the ${s.name} with a strong conviction that this opportunity will enable me to realize my goal of ${profile.goal||"contributing to meaningful research and development in my field"}.</p><br>
-      <p>Having completed my ${profile.deg||"degree"} in ${profile.field||"my field"} with a GPA of ${profile.gpa||"excellent standing"}, I have a strong academic foundation ready for international academic excellence.</p><br>
-      <p>Studying in ${String(s.country||'the host country').replace(/[\uD800-\uDFFF]./g,'').trim()} will broaden my horizons and equip me with a global perspective to address challenges in ${profile.nat||"my country"}.</p>
+      <p>I am applying for the ${appEsc(s.name)} because this opportunity aligns with my academic background in ${appEsc(profile.field||'my field')} and my long-term goal of ${appEsc(profile.goal||'contributing to meaningful development through my studies and professional work')}.</p><br>
+      <p>My current academic profile, including ${appEsc(profile.deg||'my degree level')} and ${appEsc(profile.gpa||'my academic results')}, has prepared me to pursue international academic excellence with discipline and purpose.</p><br>
+      <p>If selected, I intend to use this opportunity not only for personal advancement but also to create positive impact for ${appEsc(profile.nat||'my home country')} and the communities connected to my future work.</p>
     </div>
   </div>`;
 }
