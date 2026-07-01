@@ -1275,6 +1275,7 @@ let peerProfilesError='';
 let peerMessages=[];
 let peerMessagesLoaded=false;
 let peerBusy=false;
+let peerBlockedIds=[];
 
 const peer_MINDSETS=['The Changemaker','The Researcher','The Professional','The Explorer','The Analyst','The Generalist'];
 
@@ -1398,6 +1399,70 @@ async function peerEnsureProfile(){
   peerProfile=created.data;
   return peerProfile;
 }
+async function peerLoadBlocks(){
+  peerBlockedIds=[];
+  if(!sb) return peerBlockedIds;
+  try{
+    var user=await peerCurrentUser();
+    if(!user) return peerBlockedIds;
+    var res=await sb.from('peer_blocks').select('blocked_id').eq('blocker_id',user.id);
+    if(res.error) return peerBlockedIds;
+    peerBlockedIds=(res.data||[]).map(function(x){return String(x.blocked_id);});
+  }catch(e){ peerBlockedIds=[]; }
+  return peerBlockedIds;
+}
+function peerIsBlocked(userId){
+  return peerBlockedIds.indexOf(String(userId))>=0;
+}
+function peerFilterBlocked(list){
+  return (list||[]).filter(function(p){return !peerIsBlocked(p.user_id);});
+}
+async function reportPeer(){
+  if(!selPeer){alert('Select a peer first.');return;}
+  try{
+    var user=await peerCurrentUser();
+    if(!user) throw new Error('Please log in first.');
+    var reason=prompt('Why are you reporting this user? Example: spam, harassment, unsafe behavior, inappropriate media.','Inappropriate behavior');
+    if(!reason||!reason.trim()) return;
+    var details=prompt('Add details for review. Do not include sensitive information unless necessary.','');
+    var res=await sb.from('peer_reports').insert({
+      reporter_id:user.id,
+      reported_id:selPeer.user_id,
+      reason:reason.trim().slice(0,120),
+      details:(details||'').trim().slice(0,1000),
+      status:'new'
+    });
+    if(res.error) throw res.error;
+    alert('Report submitted. Thank you for helping keep ScholarsPath safe.');
+  }catch(e){
+    alert('Could not submit report: '+(e.message||e));
+  }
+}
+async function blockPeer(){
+  if(!selPeer){alert('Select a peer first.');return;}
+  var name=selPeer.display_name||'this peer';
+  if(!confirm('Block '+name+'? They will disappear from your peer list and will not be able to message or call you.')) return;
+  try{
+    var user=await peerCurrentUser();
+    if(!user) throw new Error('Please log in first.');
+    var res=await sb.from('peer_blocks').upsert({
+      blocker_id:user.id,
+      blocked_id:selPeer.user_id,
+      reason:'Blocked from peer community'
+    },{onConflict:'blocker_id,blocked_id'});
+    if(res.error) throw res.error;
+    selPeer=null;
+    peerMessages=[];
+    peerMessagesLoaded=false;
+    peerProfilesLoaded=false;
+    await peerLoad(true);
+    rPeers();
+    alert('User blocked. You can later unblock users directly from Supabase while we build the settings page.');
+  }catch(e){
+    alert('Could not block user: '+(e.message||e));
+  }
+}
+
 async function peerLoad(force){
   if(peerProfilesLoaded&&!force) return peerProfiles;
   peerProfilesError='';
@@ -1407,6 +1472,7 @@ async function peerLoad(force){
     var user=await peerCurrentUser();
     if(!user) throw new Error('Please log in first.');
     await peerEnsureProfile();
+    await peerLoadBlocks();
     peerListenIncomingCalls();
     var res=await sb.from('peer_profiles')
       .select('user_id,display_name,nationality,field,academic_mindset_archetype,academic_mindset_type,academic_mindset_tags,target_scholarship_id,target_scholarship_name,bio,is_visible,last_seen,created_at')
@@ -1415,7 +1481,7 @@ async function peerLoad(force){
       .order('last_seen',{ascending:false})
       .limit(100);
     if(res.error) throw res.error;
-    peerProfiles=res.data||[];
+    peerProfiles=peerFilterBlocked(res.data||[]);
     peerProfilesLoaded=true;
     return peerProfiles;
   }catch(e){
@@ -1579,6 +1645,7 @@ function peerSafeFileName(name){
 }
 async function sendPeerImage(file){
   if(!file||!selPeer||peerBusy) return;
+  if(peerIsBlocked(selPeer.user_id)){alert('This user is blocked.');return;}
   if(!file.type||!file.type.startsWith('image/')){alert('Please choose an image file.');return;}
   if(file.size>5*1024*1024){alert('Please choose an image under 5 MB.');return;}
   peerBusy=true;
@@ -1624,6 +1691,11 @@ async function peerListenIncomingCalls(){
     }).subscribe();
 }
 async function peerHandleIncomingCall(sig){
+  await peerLoadBlocks();
+  if(peerIsBlocked(sig.sender_id)){
+    try{await peerSendSignal(sig.call_id,sig.receiver_id,sig.sender_id,'hangup',sig.call_kind||'audio',{reason:'blocked'});}catch(e){}
+    return;
+  }
   if(peerCallState&&peerCallState.active){
     try{await peerSendSignal(sig.call_id,sig.receiver_id,sig.sender_id,'hangup',sig.call_kind||'audio',{reason:'busy'});}catch(e){}
     return;
@@ -1704,6 +1776,7 @@ async function peerCreatePc(localUserId,remoteUserId,callId,kind){
 }
 async function startPeerCall(kind){
   if(!selPeer){alert('Select a peer first.');return;}
+  if(peerIsBlocked(selPeer.user_id)){alert('This user is blocked.');return;}
   if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){alert('Your browser does not support camera/microphone calls.');return;}
   if(peerCallState&&peerCallState.active){alert('A call is already active.');return;}
   try{
@@ -1771,7 +1844,10 @@ function buildChat(){
       '<button class="btn btn-outline" style="padding:6px 10px;font-size:12px" onclick="startPeerCall(\'audio\')">🎧 Audio</button>'+ 
       '<button class="btn btn-outline" style="padding:6px 10px;font-size:12px" onclick="startPeerCall(\'video\')">🎥 Video</button>'+ 
       '<button class="btn btn-outline" style="padding:6px 10px;font-size:12px" onclick="peerLoadMessages().then(rPeers)">Refresh</button>'+ 
+      '<button class="btn btn-outline" style="padding:6px 10px;font-size:12px" onclick="reportPeer()">⚠ Report</button>'+ 
+      '<button class="btn peer-danger" style="padding:6px 10px;font-size:12px" onclick="blockPeer()">Block</button>'+ 
     '</div>'+ 
+    '<div class="alert alert-w" style="margin-bottom:12px"><span>🛡️</span><span>Safety controls are active. Report unsafe behavior and block anyone you do not want to contact you.</span></div>'+
     '<div class="chat-wrap" id="chat-msgs">'+
       (!peerMessagesLoaded?'<div style="text-align:center;color:var(--text3);font-size:13px;padding:28px 0">Loading messages...</div>':
       (peerMessages.length===0?'<div style="text-align:center;color:var(--text3);font-size:13px;padding:28px 0"><div style="font-size:30px;margin-bottom:8px">👋</div>Say hello to '+spEsc((p.display_name||'Scholar').split(' ')[0])+'!</div>':
@@ -1788,6 +1864,7 @@ function buildChat(){
 async function sendPeer(){
   var inp=document.getElementById('peer-inp');
   if(!inp||!inp.value.trim()||!selPeer||peerBusy) return;
+  if(peerIsBlocked(selPeer.user_id)){alert('This user is blocked.');return;}
   peerBusy=true;
   try{
     var user=await peerCurrentUser();
@@ -1807,14 +1884,14 @@ function rPeers(){
   const pg=document.getElementById('page-peers');
   if(!peerProfilesLoaded){
     pg.innerHTML=`${topbar('Peer <em>Community</em>','Find students by profile, not only by scholarship')}
-    <div class="alert alert-i"><span>✦</span><span>This is a real Supabase-backed community. At launch, all visible students can discover each other; academic profile only prioritizes the strongest matches.</span></div>
+    <div class="alert alert-i"><span>✦</span><span>This is a real Supabase-backed community. At launch, all visible students can discover each other; academic profile only prioritizes the strongest matches. Safety controls are active: blocked users are hidden.</span></div>
     <div class="card"><p style="color:var(--text3)">Loading peer community...</p></div>`;
     peerLoad(false).then(function(){rPeers();});
     return;
   }
   pg.innerHTML=`
   ${topbar('Peer <em>Community</em>','Find students by profile, not only by scholarship')}
-  <div class="alert alert-i"><span>✦</span><span>Your email is never shown. At launch, students are not filtered out by scholarship choice. The app shows all visible peers and prioritizes same academic profiles such as Changemaker, Researcher, Analyst, Explorer, Professional, and Generalist.</span></div>
+  <div class="alert alert-i"><span>✦</span><span>Your email is never shown. At launch, students are not filtered out by scholarship choice. The app shows all visible peers, prioritizes same academic profiles, and hides anyone you block.</span></div>
   ${peerProfileCard()}
   <div class="grid2">
     <div>
